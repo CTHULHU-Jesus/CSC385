@@ -1,6 +1,5 @@
 module Main where
 
-import qualified Graphics.Vty as V
 import Brick
 import Lib 
 
@@ -12,13 +11,13 @@ main =
 			-- :: Games -> [Widget e]
 			appDraw           = menu
 			-- :: Games -> [CursorLocation e] -> Maybe (CursorLocation e)
-			, appChooseCursor = \_ _ -> Nothing
+			, appChooseCursor = \_ -> showCursorNamed "use"
 			-- :: Games -> BrickEvent e () -> EventM e (Next Games)
 			, appHandleEvent  = handelEvents 
 			-- :: Games -> EventM e Games
 			, appStartEvent   = return
 			-- :: Games -> AttrMap 
-			, appAttrMap      = \_ -> attrMap V.defAttr []
+			, appAttrMap      = noMap
 		}
 	in
 		do

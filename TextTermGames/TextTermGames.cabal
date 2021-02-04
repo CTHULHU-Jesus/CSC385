@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: b5cb08b0f603e708b520dc05dead4f9a089fc98272639b143b321d21264a0bc0
+-- hash: 084dd20fc72cf25bd90c5162e0e9be7a9325e2bf76314683f3fa2b74a6566694
 
 name:           TextTermGames
 version:        0.1.0.0
@@ -37,6 +37,7 @@ library
       base >=4.7 && <5
     , brick >=0.58.1
     , matrix
+    , random
     , vector
     , vty
   default-language: Haskell2010
@@ -53,6 +54,7 @@ executable TextTermGames-exe
     , base >=4.7 && <5
     , brick >=0.58.1
     , matrix
+    , random
     , vector
     , vty
   default-language: Haskell2010
@@ -70,6 +72,7 @@ test-suite TextTermGames-test
     , base >=4.7 && <5
     , brick >=0.58.1
     , matrix
+    , random
     , vector
     , vty
   default-language: Haskell2010

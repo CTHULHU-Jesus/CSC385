@@ -25,6 +25,7 @@ dependencies:
 - vector 
 - vty
 - matrix
+- random
 
 library:
   source-dirs: src
