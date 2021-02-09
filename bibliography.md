@@ -10,3 +10,6 @@
 
 # Into to Game Theory
 - https://towardsdatascience.com/game-theory-in-artificial-intelligence-57a7937e1b88
+
+# Intro to UI
+- https://www.academia.edu/44813663/Guide\_to\_Mapping\_Requirements\_to\_User\_Interface\_Specifications

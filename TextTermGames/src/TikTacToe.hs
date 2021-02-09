@@ -61,7 +61,7 @@ validMoves board
         -- The matrix is one indexed
         -- but the location is zero indexed
         -- so we have to perform this switch
-        Nothing -> Just (x-1,y-1) 
+        Nothing -> Just (y-1,x-1) 
         -- If there is something there
         -- then the AI can't put something
         -- there
@@ -70,6 +70,24 @@ validMoves board
 
 -- AI Function using the miniMax algorithm
 miniMax :: M.Matrix (Maybe Player) -> Player -> (Int,Int)
+miniMax board me = (0,0)
+--	let
+--		dive :: M.Matrix (Maybe Player) -> Player -> [(Int,(Int,Int))]
+--		dive board me =
+--			let
+--				moves = validMoves board
+--			in
+--			. map
+--			. map (\loc -> unsafeSet me board (fmap (+1) loc))
+--			$ moves 
+--		maxWin :: [(Int,(Int,Int))] -> (Int,Int)
+--		maxWin 
+--			= foldl (0,(0,0)) -- the default value
+--			  (\(wins1,x) (wins2,y) -> if wins1 < wins2 then y else x)
+--	in
+--	maxWin
+--	. dive board
+--	$ me
 
 -- If there is a winner returns just the winner.
 -- If there is no winner returns nothing.
@@ -105,7 +123,7 @@ winner m =
                 Nothing -> 0
                 Just O  -> 1
                 Just X  -> 2)
-            $ board
+            $ m
 
         checkedList :: [Int]
         checkedList = (checkRows overlayMatrix)
@@ -151,7 +169,7 @@ runAI :: State -> State
 runAI state@(State 
         { board=board
         , currPlayer=currPlayer
-        , currCursorPos=(locx,locy)
+        , currCursorPos=(locy,locx)
         , aiOponnent=ai }) = 
             case ai of
                 Nothing -> state
@@ -229,7 +247,7 @@ draw (Winner x) =
         [center . border . str $ txt]
 draw State { board=board
            , currPlayer=currPlayer
-           , currCursorPos=(locx,locy)
+           , currCursorPos=(locy,locx)
            , aiOponnent=_ }
     = 
     let 
@@ -255,7 +273,7 @@ update :: State -> Maybe State
 update state@(State
            { board=board
            , currPlayer=currPlayer
-           , currCursorPos=(x,y)
+           , currCursorPos=(y,x)
            , aiOponnent=aiOponnent }) =
            let
                 loc = (y+1,x+1)
@@ -264,7 +282,7 @@ update state@(State
                Nothing -> (Just  State 
                 { board = M.unsafeSet (Just currPlayer) loc board
                 , currPlayer = other currPlayer
-                , currCursorPos = (x,y)
+                , currCursorPos = (y,x)
                 , aiOponnent = aiOponnent})
 
                Just _ -> Nothing
@@ -310,10 +328,10 @@ handelEvents state@(State
 
     in case event of 
         
-        VtyEvent x | x `elem` ups -> Brick.Main.continue $ move (0,-1)
-        VtyEvent x | x `elem` downs ->Brick.Main.continue $ move (0,1)
-        VtyEvent x | x `elem` lefts ->Brick.Main.continue $ move (-1,0)
-        VtyEvent x | x `elem` rights ->Brick.Main.continue $ move (1,0)
+        VtyEvent x | x `elem` ups -> Brick.Main.continue $ move (-1,0)
+        VtyEvent x | x `elem` downs ->Brick.Main.continue $ move (1,0)
+        VtyEvent x | x `elem` lefts ->Brick.Main.continue $ move (0,-1)
+        VtyEvent x | x `elem` rights ->Brick.Main.continue $ move (0,1)
         VtyEvent (V.EvKey V.KEnter []) -> Brick.Main.continue $
             checkWinner $ runAI $ checkWinner $ fromMaybe state (update state)
         _ -> Brick.Main.continue state
