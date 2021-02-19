@@ -10,7 +10,7 @@ import System.Random (getStdRandom,randomR)
 import Data.Maybe (fromMaybe,catMaybes,fromJust)
 import Brick.Widgets.Border.Style (unicode)
 import Brick.Widgets.Center (center)
-import GHC.OldList (intersperse)
+import GHC.OldList (sortOn,intersperse)
 import Brick.Widgets.Border (borderWithLabel,border,hBorder,vBorder)
 import Brick
 import Brick.Widgets.List as BWList
@@ -68,32 +68,72 @@ validMoves board
         Just _  -> Nothing)
     $ board
 
--- AI Function using the miniMax algorithm
-miniMax :: M.Matrix (Maybe Player) -> Player -> (Int,Int)
-miniMax board me = (0,0)
---	let
---		dive :: M.Matrix (Maybe Player) -> Player -> [(Int,(Int,Int))]
---		dive board me =
---			let
---				moves = validMoves board
---			in
---			. map
---			. map (\loc -> unsafeSet me board (fmap (+1) loc))
---			$ moves 
---		maxWin :: [(Int,(Int,Int))] -> (Int,Int)
---		maxWin 
---			= foldl (0,(0,0)) -- the default value
---			  (\(wins1,x) (wins2,y) -> if wins1 < wins2 then y else x)
---	in
---	maxWin
---	. dive board
---	$ me
+-- Minimax algorithm with alpha beta pruning and depth stop
+miniMaxWithABD :: M.Matrix (Maybe Player)
+               -> Player
+               -> (Int,Int)
+miniMaxWithABD board player =
+    let
+        helper :: M.Matrix (Maybe Player)
+               -> Player
+               -> Int
+               -> Int
+               -> Int
+               -> ((Int,Int),Int) -- (move,score)
+        helper board me depth alpha beta = 
+            let
+                dive :: Int
+                     -> Int
+                     -> [((Int,Int),M.Matrix (Maybe Player))]
+                     -> [((Int,Int),Int)]
+                dive _ _ [] = []
+                dive alpha beta ((move,board):xs) = (move,score):more where
+                    score :: Int
+                    score = (snd 
+                          $ helper board (other me) (depth+1) alpha beta)
+                    more  = case (me == player) of
+                            -- maximizing
+                        True -> if score >= beta then
+                                    []
+                                else
+                                    dive (max alpha score) beta xs
+                            -- minimizing
+                        False -> if score <= alpha then
+                                     []
+                                 else
+                                     dive alpha (min beta score) xs
+
+                buildBoards :: [(Int,Int)]
+                            -> [((Int,Int),M.Matrix (Maybe Player))]
+                buildBoards = map (\x -> (x,place board me x))
+
+                evaluate :: Int
+                evaluate = case winner board of
+                                Just x  -> (if x == player then 1 else -1) * 
+                                           (20-depth)
+                                Nothing -> 0
+            in
+                if (winner board) /= Nothing then
+                    ((0,0),evaluate)
+                else if isFull board then
+                    ((0,0),0)
+                else
+                   (if me == player then head else last)
+                    --TODO debug trace
+                   . sortOn snd
+                   . dive alpha beta
+                   . buildBoards
+                   $ validMoves board
+    in
+        fst 
+        $ helper board player 0 (minBound :: Int) (maxBound :: Int)
 
 -- If there is a winner returns just the winner.
 -- If there is no winner returns nothing.
 -- use a magic square (http://mathworld.wolfram.com/MagicSquare.html) 
--- 1 for O 2 for X and 0 for blank
--- if you multiply any diaginal or row and get 15 O won if 30 X won
+-- 1 for O 2 for X and 0 for blank.
+-- if you sum any diaginal or row or colomn 
+--     and get 15 O won if 30 X won.
 winner :: M.Matrix (Maybe Player) -> Maybe Player
 winner m =
     let
@@ -114,7 +154,7 @@ winner m =
         checkDiags :: M.Matrix Int -> [Int]
         checkDiags m = 
             [ M.trace m
-            , M.trace . M.switchCols 1 2 $ m]
+            , M.trace . M.switchCols 1 3 $ m]
 
         overlayMatrix :: M.Matrix Int
         overlayMatrix 
@@ -177,31 +217,9 @@ runAI state@(State
                 Just x | x == currPlayer -> fromJust $ update $ State 
                     { board = board
                     , currPlayer = currPlayer
-                    , currCursorPos = loc
-                    , aiOponnent = ai} where
-                        loc :: (Int,Int)
-                        loc = eather (anyOpenSpot board) (miniMax board currPlayer) 
-                        randn :: Int
-                        randn = 0 -- unsafePerformIO $ getStdRandom $ randomR (1,0)
-                        miniMax board me = (0,0)
-                        eather :: a -> a -> a
-                        eather a b = if  randn == 0 then
-                                a
-                            else 
-                                b
-                        anyOpenSpot :: M.Matrix (Maybe Player) -> (Int,Int)
-                        anyOpenSpot board = 
-                            let
-                                validSpots = validMoves board
+                    , currCursorPos = miniMaxWithABD board currPlayer
+                    , aiOponnent = ai} 
 
-                                index :: Int
-                                index = unsafePerformIO 
-                                      . getStdRandom
-                                      . randomR
-                                      $ (0,-1+length validSpots)
-                            in
-                                (trace (show validSpots ) validSpots) !! index
-                                
 runAI x = x
 
             
@@ -242,7 +260,7 @@ draw (Winner x) =
     let
         txt = case x of
             Nothing -> "Tie Game"
-            Just a  -> "Congrats " ++ (show a) ++ " Player"
+            Just a  -> "Congrats " ++ (show a)
     in
         [center . border . str $ txt]
 draw State { board=board
@@ -268,30 +286,38 @@ draw State { board=board
         . M.mapPos (\_ ->  str . rend)
         $ board ]
 
+place :: M.Matrix (Maybe Player)
+      -> Player
+      -> (Int,Int)
+      -> M.Matrix (Maybe Player)
+place m p (y,x) =
+    M.unsafeSet (Just p) (y+1,x+1) m
+
 -- update the board and switch the player
+-- based on the location of the cursor
 update :: State -> Maybe State
 update state@(State
            { board=board
            , currPlayer=currPlayer
-           , currCursorPos=(y,x)
+           , currCursorPos=loc
            , aiOponnent=aiOponnent }) =
-           let
-                loc = (y+1,x+1)
-           in
-           case trace (show board++show (x,y)++(show $ board M.! loc)) (board M.! loc) of
-               Nothing -> (Just  State 
-                { board = M.unsafeSet (Just currPlayer) loc board
-                , currPlayer = other currPlayer
-                , currCursorPos = (y,x)
-                , aiOponnent = aiOponnent})
+               case board M.! (1+fst loc,1+snd loc) of
+                   Nothing -> (Just  State 
+                    { board = place board currPlayer loc
+                    , currPlayer = other currPlayer
+                    , currCursorPos = loc
+                    , aiOponnent = aiOponnent})
 
-               Just _ -> Nothing
+                   Just _ -> Nothing
 
 update x = Just x
 
 
 
 -- handelEvents 
+-- handel the events for Tic-Tak-Toe
+-- allows you to use the arrow keys and the vim keys
+-- to move around
 handelEvents :: State -> BrickEvent e () -> EventM e (Next State)
 handelEvents (AISelectorMenu lst) event = case event of
         -- up 
