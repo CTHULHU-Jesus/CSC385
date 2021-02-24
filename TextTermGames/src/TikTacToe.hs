@@ -10,7 +10,7 @@ import System.Random (getStdRandom,randomR)
 import Data.Maybe (fromMaybe,catMaybes,fromJust)
 import Brick.Widgets.Border.Style (unicode)
 import Brick.Widgets.Center (center)
-import GHC.OldList (sortOn,intersperse)
+import Data.List (isInfixOf,intersperse,sortOn)
 import Brick.Widgets.Border (borderWithLabel,border,hBorder,vBorder)
 import Brick
 import Brick.Widgets.List as BWList
@@ -89,19 +89,24 @@ miniMaxWithABD board player =
                 dive _ _ [] = []
                 dive alpha beta ((move,board):xs) = (move,score):more where
                     score :: Int
-                    score = (snd 
-                          $ helper board (other me) (depth+1) alpha beta)
-                    more  = case (me == player) of
+                    score  = (snd 
+                             $ helper board (other me) (depth+1) alpha beta)
+
+                    alpha' = max score alpha
+
+                    beta'  = min score beta
+
+                    more   = case (me == player) of
                             -- maximizing
-                        True -> if score >= beta then
+                        True -> if alpha' >= beta then
                                     []
                                 else
-                                    dive (max alpha score) beta xs
+                                    dive alpha' beta xs 
                             -- minimizing
-                        False -> if score <= alpha then
+                        False -> if beta' <= alpha then
                                      []
                                  else
-                                     dive alpha (min beta score) xs
+                                     dive alpha beta' xs 
 
                 buildBoards :: [(Int,Int)]
                             -> [((Int,Int),M.Matrix (Maybe Player))]
@@ -116,10 +121,12 @@ miniMaxWithABD board player =
                 if (winner board) /= Nothing then
                     ((0,0),evaluate)
                 else if isFull board then
-                    ((0,0),0)
+                    ((0,0),evaluate)
                 else
-                   (if me == player then head else last)
-                    --TODO debug trace
+                   (if me == player then last else head)
+                   -- TODO remove trace when can
+                   . (\x -> (trace (show (if me == player then "Max" else "Min")
+                                       ++"\n"++ show board ++ "\n" ++ show x) x))
                    . sortOn snd
                    . dive alpha beta
                    . buildBoards

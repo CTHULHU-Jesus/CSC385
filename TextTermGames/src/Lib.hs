@@ -7,6 +7,7 @@ import qualified Graphics.Vty as V
 import qualified Brick.Main
 import qualified TikTacToe
 import qualified Connect4
+import qualified Checkers
 import Brick.Widgets.Center (center)
 import Brick.Widgets.Border (borderWithLabel)
 import Brick
@@ -18,7 +19,7 @@ data Games
         = TopMenu (BWList.List String String)
         | TikTacToe TikTacToe.State
         | Connect4 Connect4.State
-        | Checkers ()
+        | Checkers Checkers.State
         | Chess ()
 
 -- Constants 
@@ -59,7 +60,7 @@ name (TopMenu   _) = "Top Menu"
 menu :: Games -> [Widget String]
 menu (TikTacToe state) = TikTacToe.draw state
 menu (Chess ())        = []
-menu (Checkers ())     = []
+menu (Checkers state)  = Checkers.draw state
 menu (Connect4 state)  = Connect4.draw state
 menu (TopMenu menuList)= 
     let
@@ -91,22 +92,28 @@ handelEvents state@(TopMenu menuList) event =
                                         Just (_,"Connect4") -> Brick.Main.continue $
                                             Connect4 Connect4.initState
                                         Just (_,"Checkers") -> Brick.Main.continue $
-                                            Checkers ()
+                                            Checkers Checkers.initState
                                         Just (_,"Chess")    -> Brick.Main.continue $
                                             Chess ()
                                         _ -> Brick.Main.continue state
             )
         _                                    -> Brick.Main.continue state
 -- if someone won, at the first key-press move them back to the main menu
+-- TikTacToe
 handelEvents state@(TikTacToe (TikTacToe.Winner _)) e = case e of
     VtyEvent _ -> Brick.Main.continue initalState
     _ -> Brick.Main.continue state
 handelEvents (TikTacToe state) e = fmap (fmap TikTacToe) $ TikTacToe.handelEvents state e
---
+-- Connect4
 handelEvents state@(Connect4 (Connect4.Winner _)) e = case e of 
     VtyEvent _ -> Brick.Main.continue initalState
     _ -> Brick.Main.continue state
 handelEvents (Connect4 state) e = fmap (fmap Connect4) $ Connect4.handelEvents state e
---
+-- Checkers
+handelEvents state@(Checkers (Checkers.Winner _)) e = case e of 
+    VtyEvent _ -> Brick.Main.continue initalState
+    _ -> Brick.Main.continue state
+handelEvents (Checkers state) e = fmap (fmap Checkers) $ Checkers.handelEvents state e
+-- Default
 handelEvents s e = Brick.Main.continue s
 -- Instances
