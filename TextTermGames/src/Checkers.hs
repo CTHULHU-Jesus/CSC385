@@ -54,8 +54,8 @@ initState =
 
 
 
-initBoard :: State
-initBoard = State 
+initBoard :: Maybe Player -> State
+initBoard ai = State 
     { board = M.matrix 8 8 
         (\(y,x) -> if (x+y) `mod` 2 == 1 then
                        case y of
@@ -69,7 +69,7 @@ initBoard = State
     , jumpingPiece = Nothing
     , move = Nothing
     , currCursorPos = (0,0)
-    , aiOponnent = Nothing }
+    , aiOponnent = ai }
     
 -- Functions
 
@@ -84,7 +84,7 @@ colorOf :: Checker -> Player
 colorOf (NonKing x) = x
 colorOf (King    x) = x
 
-
+{--
 upCursor :: (Int,Int) -> State -> State
 upCursor currCursorPos (State 
             { board = board
@@ -104,14 +104,14 @@ upCursor _ x = x
 
 
 upAI     :: Maybe Player -> State -> State
-upAI aiOponnent (State 
+upAI aiOponnent State 
             { board = board
             , currPlayer = currPlayer
             , jumpingPiece = jumpingPiece
             , move = move
             , currCursorPos = currCursorPos
             , aiOponnent = _
-            }) =
+            } =
     State { board = board
           , currPlayer = currPlayer
           , jumpingPiece = jumpingPiece
@@ -119,9 +119,31 @@ upAI aiOponnent (State
           , currCursorPos = currCursorPos
           , aiOponnent = aiOponnent }
 upAI _ x = x
-
+--}
 
 draw :: State -> [Widget String] 
+draw (AISelectorMenu lst) =
+    let
+        render :: Bool -> Maybe Player -> Widget String
+        render b x = str $ (if b then "->" else "  ")
+            ++ case x of
+                Nothing ->     " 2Player"
+                Just White  -> " AI [White]"
+                Just Black  -> " AI [Black]"
+    in
+        [ center
+        . border
+        $ BWList.renderList render True lst]
+draw (Winner s) = 
+    let
+        txt = case s of
+                Nothing -> "Tie Game"
+                Just x  -> "Congrats " ++ show x
+    in
+        [ center 
+        . border 
+        $ str txt]
+
 draw state@State 
             { board = board
             , currPlayer = currPlayer
@@ -134,7 +156,7 @@ draw state@State
         rend :: Board -> String
         rend m = ( init
             . foldl (\a b -> a++"\n"++b) ""
-            . map (foldl (++) "")
+            . map concat
             . M.toLists
             . M.mapPos (\(y,x) piece ->
                 case piece of
@@ -160,14 +182,14 @@ draw state@State
         $ board]
 
 handelEvents :: State -> BrickEvent e () -> EventM e (Next State)
-handelEvents state@(State 
+handelEvents state@State 
             { board = board
             , currPlayer = currPlayer
             , jumpingPiece = jumpingPiece
             , move = move
             , currCursorPos = (cursorY,cursorX)
             , aiOponnent = aiOponnent
-            }) e =
+            } e =
     let
         ups    = [V.KChar 'k', V.KUp]
         downs  = [V.KChar 'j', V.KDown]
@@ -178,19 +200,23 @@ handelEvents state@(State
         VtyEvent (V.EvKey key _)-> case key of
             x | x `elem` ups -> 
                 Brick.Main.continue
-                $ upCursor ((cursorY-1) `mod` 8,cursorX) state
+                $ state 
+                { currCursorPos = ((cursorY-1) `mod` 8,cursorX) }
 
             x | x `elem` downs -> 
                 Brick.Main.continue
-                $ upCursor ((cursorY+1) `mod` 8,cursorX) state
+                $ state 
+                { currCursorPos = ((cursorY+1) `mod` 8,cursorX) }
 
             x | x `elem` rights -> 
                 Brick.Main.continue
-                $ upCursor (cursorY,(cursorX+1) `mod` 8) state
+                $ state 
+                { currCursorPos = (cursorY,(cursorX+1) `mod` 8) }
 
             x | x `elem` lefts -> 
                 Brick.Main.continue
-                $ upCursor (cursorY,(cursorX-1) `mod` 8) state
+                $ state 
+                { currCursorPos = (cursorY,(cursorX-1) `mod` 8) }
 
             V.KEnter -> 
                 Brick.Main.continue
@@ -217,36 +243,12 @@ checkWinner state@State
                 , currCursorPos = _
                 , aiOponnent = _
                 } = 
-    let
-        piecesActive :: [ Checker ]
-        piecesActive = catMaybes
-                     . M.toList
-                     $ board
-
-        blackActive :: Bool
-        blackActive = any (==Black)
-                    . map (\x -> case x of
-                             NonKing c -> c
-                             King    c -> c)
-                    $ piecesActive
-
-        whiteActive :: Bool
-        whiteActive = any (==White)
-                    . map (\x -> case x of
-                             NonKing c -> c
-                             King    c -> c)
-                    $ piecesActive
-    in
-        if not blackActive then
-            Winner $ Just White
-        else if not whiteActive then
-            Winner $ Just Black
-        else if [] == validMoves board Black then
-            Winner $ Just White
-        else if [] == validMoves board White then
-            Winner $ Just Black
-        else
-            state
+    if null $ validMoves board Black then
+        Winner $ Just White
+    else if null $ validMoves board White then
+        Winner $ Just Black
+    else
+        state
 
 checkWinner x = x
 
@@ -262,7 +264,7 @@ update state@State
     case move of
         Nothing      -> 
             -- if color of piece == currPlayer then can move
-            case board M.! (upOne currCursorPos) of
+            case board M.! upOne currCursorPos of
                 Nothing -> state
                 Just x  -> if colorOf x == currPlayer then
                                state {move = Just currCursorPos}
@@ -289,25 +291,60 @@ update x = x
 
 canJump :: Board -> (Int,Int) -> Bool
 canJump board pos =
-    case board M.! (upOne pos) of
+    case board M.! upOne pos of
         Nothing -> False
-        Just (NonKing _) -> False
-        Just (King    _) -> False-- @TODO
+        Just (NonKing color) -> False
+        Just (King    color) -> False-- @TODO
 
 validMoves :: Board -> Player -> [((Int,Int),(Int,Int))]
 validMoves board player =
-    foldl (++) []
-    . M.toList
-    . M.mapPos 
-        (\(y,x) piece -> 
-            case piece of
-                Nothing -> []
-                Just piece ->
-                    if colorOf piece == player then
-                        [] -- @TODO makable moves
-                    else
-                        [])
-    $ board
+    let
+        test :: Checker -> ((Int,Int),(Int,Int)) -> Bool
+        test piece (m1,m2) =
+            let
+                (y1,x1) = upOne m1
+                (y2,x2) = upOne m2
+                (dy,dx) = (y2-y1,x2-x1)
+                inBoard :: Int -> Bool
+                inBoard x = 1 <= x && x <= 8
+            in
+                if dx==0 || dy==0 then
+                    False
+                else if not . any inBoard $ [y1,x1,y2,x2] then
+                    False
+                else if not $ abs dx == abs dy then
+                    False
+                -- check that nothing is in the way
+                else if Nothing /= board M.! (y2,x2) then
+                   False 
+                -- check if can move in that dirction
+                else if False then
+                    False -- @TODO
+                -- can only move 2 if takeing a piece and if nothing is in the way
+                else if abs dx == 2 then
+                    fromMaybe False
+                    (do 
+                        p <- board M.! (y1+(dy `div` 2),x1+(dx `div` 2))
+                        return (colorOf p == (other . colorOf $ piece)))
+                else
+                    True 
+    in
+        concat
+        . M.toList
+        . M.mapPos 
+            (\(y,x) piece -> 
+                case piece of
+                    Nothing -> []
+                    Just piece ->
+                        if colorOf piece == player then
+                            map (\a -> ((x,y),a))
+                            [(y+dy,x+dx) 
+                                | dx <- [-2..2] 
+                                , dy <- [-2..2] 
+                                , test piece ((y,x),(y+dy,x+dx))] -- @TODO makable moves
+                        else
+                            [])
+        $ board
 
 
 applyMove :: ((Int,Int),(Int,Int)) -> Board -> Board

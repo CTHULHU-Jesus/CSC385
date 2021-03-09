@@ -1,0 +1,45 @@
+\documentclass[12pt]{article}
+
+\usepackage{amssymb,amsmath,afterpage}
+
+\begin{document}
+	\author{Matthew Bartlett}
+	\title{Research Report}
+	\date{\today}
+	\maketitle
+
+	\null\qquad Claim 9.5:\\
+
+
+
+	proof:\\
+		A.T.P.\\
+		Let $f:D\rightarrow\mathbb{R}$ be a w.d.f.\\
+		let $c\in D'$\\
+		let $\lim_{x\rightarrow c}f(x)$ exist\\
+		Suppose there are two limits for $f$ at $c$ and call them $l_1,l_2\in\mathbb{R}\ni l_1\neq l_2$\\
+		let $|l_1-l_2|=\gamma$\\
+		$0<\gamma$ because $l_1\neq l_2$\\
+		let $\varepsilon=\frac{\gamma}{3}$\\
+		$\delta\in\mathbb{R}$ exists, because of $\varepsilon$\\
+		let $x\in(c-\delta,c+\delta)-\{c\}$\\
+		$|f(x)-l_1|<\varepsilon$\\
+		$-\varepsilon<f(x)-l_1<\varepsilon$\\
+		$-\frac{|l_1-l_2|}{3}<f(x)-l_1<\frac{|l_1-l_2|}{3}$\\
+		$l_1-\frac{|l_1-l_2|}{3}<f(x)<l_1+\frac{|l_1-l_2|}{3}$\\
+		$|f(x)-l_2|<\varepsilon$\\
+		$-\varepsilon<f(x)-l_2<\varepsilon$\\
+		$-\frac{|l_1-l_2|}{3}<f(x)-l_2<\frac{|l_1-l_2|}{3}$\\
+		$l_2-\frac{|l_1-l_2|}{3}<f(x)<l_2+\frac{|l_1-l_2|}{3}$\\
+		WLOG $l_1<l_2$\\
+		%$-\varepsilon<f(x)-l_1<f(x)-l_2<\varepsilon$\\
+		%$-\frac{\gamma}{3}<f(x)-l_1<f(x)-l_2< \frac{\gamma}{3}$\\
+		%$-\frac{\gamma}{3}-f(x)<-l_1<-l_2< \frac{\gamma}{3}-f(x)$\\
+		%$-\frac{|l_1-l_2|}{3}-f(x)<-l_1<-l_2< \frac{|l_1-l_2|}{3}-f(x)$\\
+		%$-\frac{|l_1-l_2|}{3}-f(x)+l_1<0<l_1-l_2< \frac{|l_1-l_2|}{3}-f(x)+l_1$\\
+		%$0<|l_1-l_2|<|\frac{|l_1-l_2|}{3}-f(x)+l_1|$\\
+		%$0<|l_1-l_2|<|\frac{|l_1-l_2|}{3}+l_1-f(x)|$\\
+		This shows that $f$ is not a w.d.f.\\
+		Proof by contradiction limits are unique\\
+		Q.E.D.
+\end{document}
