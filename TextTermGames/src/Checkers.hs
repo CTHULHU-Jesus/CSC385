@@ -154,13 +154,20 @@ draw state@State
             } = 
     let
         rend :: Board -> String
-        rend m = ( init
+        rend m = ( 
+            init
             . foldl (\a b -> a++"\n"++b) ""
             . map concat
             . M.toLists
             . M.mapPos (\(y,x) piece ->
-                case piece of
-                    Just x  -> show x
+                case piece :: Maybe Checker of
+                    Just piece -> show piece 
+                                    -- ++
+--                                     (case move :: Maybe (Int,Int) of
+--                                         Just selected 
+--                                             | upOne selected == (y,x) ->
+--                                                 " ̅"
+--                                         otherwise -> "")
                     Nothing -> if 1==(y+x) `mod` 2 then
                                    " "
                                else
@@ -176,12 +183,37 @@ draw state@State
             . (\(y,x) -> (x+1,y+2))
             $ currCursorPos)
         -- . withBorderStyle unicode hBorder
+        . (case move of
+            Nothing -> id
+            Just (y,x) -> 
+                -- @TODO show that selected pice was selected
+                -- showCursor "use" (Location (y+1,x+1)))
         . borderWithLabel (str label)
         . str
         . rend
         $ board]
 
+
 handelEvents :: State -> BrickEvent e () -> EventM e (Next State)
+handelEvents (AISelectorMenu lst) event = 
+    case event of
+            -- up 
+        (VtyEvent (V.EvKey (V.KChar 'k') _)) -> Brick.Main.continue (AISelectorMenu 
+                                                    $ BWList.listMoveUp lst)
+        (VtyEvent (V.EvKey V.KUp _))         -> Brick.Main.continue (AISelectorMenu 
+                                                    $ BWList.listMoveUp lst)
+            -- down
+        (VtyEvent (V.EvKey (V.KChar 'j') _)) -> Brick.Main.continue (AISelectorMenu 
+                                                    $ BWList.listMoveDown lst)
+        (VtyEvent (V.EvKey V.KDown  _))      -> Brick.Main.continue (AISelectorMenu 
+                                                    $ BWList.listMoveDown lst)
+            -- enter
+        (VtyEvent (V.EvKey V.KEnter _))      -> (case BWList.listSelectedElement lst of
+            Nothing -> Brick.Main.continue (AISelectorMenu lst)
+            Just (_,option) -> Brick.Main.continue $ initBoard option
+            )
+        _ -> Brick.Main.continue (AISelectorMenu lst)
+
 handelEvents state@State 
             { board = board
             , currPlayer = currPlayer
@@ -220,10 +252,15 @@ handelEvents state@State
 
             V.KEnter -> 
                 Brick.Main.continue
+                . (trace "checkWinner2")
                 . checkWinner
+                . (trace "runAI")
                 . runAI
+                . (trace "checkWinner")
                 . checkWinner
+                . (trace "update")
                 . update
+                . (trace "na")
                 $ state
 
             _ -> Brick.Main.continue state
@@ -243,9 +280,9 @@ checkWinner state@State
                 , currCursorPos = _
                 , aiOponnent = _
                 } = 
-    if null $ validMoves board Black then
+    if [] == validMoves board Black then
         Winner $ Just White
-    else if null $ validMoves board White then
+    else if [] == validMoves board White then
         Winner $ Just Black
     else
         state
@@ -289,62 +326,74 @@ update state@State
                     state 
 update x = x
 
+validMove :: Board -> ((Int,Int),(Int,Int)) -> Bool
+validMove board (m1,m2) =
+    let
+        (y1,x1) = upOne m1
+        (y2,x2) = upOne m2
+        (dy,dx) = (y2-y1,x2-x1)
+        inBoard :: Int -> Bool
+        inBoard x = 1 <= x && x <= 8
+    in
+        if dx==0 || dy==0 then
+            False
+        else if any (not . inBoard) $ [y1,x1,y2,x2] then
+            False
+        -- checkers can only move in a diagonal
+        else if not $ abs dx == abs dy then
+            False
+        else case board M.! (y1,x1) of
+                Nothing -> False
+                Just piece ->
+                    -- check that nothing is in the way
+                    if Nothing /= board M.! (y2,x2) then
+                       (\x -> trace (show x ++ show (m1,m2)) x)
+                       False 
+                    -- check if can move in that direction
+                    else if (case piece of
+                                King _        -> False
+                                NonKing color -> 
+                                    case color of
+                                        -- white checkers can only move up the board
+                                        White -> dy>0
+                                        -- black checkers can only move down the board
+                                        Black -> dy<0) then
+                        False 
+                    -- can only move 2 if takeing a piece and if nothing is in the way
+                    else if abs dx == 2 then
+                        fromMaybe False
+                        (do 
+                            p <- board M.! (y1+(dy `div` 2),x1+(dx `div` 2))
+                            return (colorOf p == (other . colorOf $ piece)))
+                    else
+                        True 
+
 canJump :: Board -> (Int,Int) -> Bool
-canJump board pos =
-    case board M.! upOne pos of
-        Nothing -> False
-        Just (NonKing color) -> False
-        Just (King    color) -> False-- @TODO
+canJump board pos@(y,x) =
+    any (validMove board)
+    [(pos,(y+dy,x+dx)) | dx<-[-2,2] , dy<-[-2,2]]
 
 validMoves :: Board -> Player -> [((Int,Int),(Int,Int))]
 validMoves board player =
-    let
-        test :: Checker -> ((Int,Int),(Int,Int)) -> Bool
-        test piece (m1,m2) =
-            let
-                (y1,x1) = upOne m1
-                (y2,x2) = upOne m2
-                (dy,dx) = (y2-y1,x2-x1)
-                inBoard :: Int -> Bool
-                inBoard x = 1 <= x && x <= 8
-            in
-                if dx==0 || dy==0 then
-                    False
-                else if not . any inBoard $ [y1,x1,y2,x2] then
-                    False
-                else if not $ abs dx == abs dy then
-                    False
-                -- check that nothing is in the way
-                else if Nothing /= board M.! (y2,x2) then
-                   False 
-                -- check if can move in that dirction
-                else if False then
-                    False -- @TODO
-                -- can only move 2 if takeing a piece and if nothing is in the way
-                else if abs dx == 2 then
-                    fromMaybe False
-                    (do 
-                        p <- board M.! (y1+(dy `div` 2),x1+(dx `div` 2))
-                        return (colorOf p == (other . colorOf $ piece)))
-                else
-                    True 
-    in
-        concat
-        . M.toList
-        . M.mapPos 
-            (\(y,x) piece -> 
-                case piece of
-                    Nothing -> []
-                    Just piece ->
-                        if colorOf piece == player then
-                            map (\a -> ((x,y),a))
-                            [(y+dy,x+dx) 
-                                | dx <- [-2..2] 
-                                , dy <- [-2..2] 
-                                , test piece ((y,x),(y+dy,x+dx))] -- @TODO makable moves
-                        else
-                            [])
-        $ board
+    concat
+    . M.toList
+    . M.mapPos 
+        (\(maty,matx) piece -> 
+            case piece of
+                Nothing -> []
+                Just piece  ->
+                    let
+                        (y,x) = (maty-1,matx-1)
+                    in
+                    if colorOf piece == player then
+                        map (\a -> ((y,x),a))
+                        [(y+dy,x+dx) 
+                            | dx <- [-2..2] 
+                            , dy <- [-2..2] 
+                            , validMove board ((y,x),(y+dy,x+dx))] -- @TODO makable moves
+                    else
+                        [])
+    $ board
 
 
 applyMove :: ((Int,Int),(Int,Int)) -> Board -> Board

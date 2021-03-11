@@ -24,3 +24,7 @@ cabal.project.local~
 *.pdf
 *.aux
 *.log
+*.bbl
+*.bcf
+*.run.xml
+*.blg
