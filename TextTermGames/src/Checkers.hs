@@ -185,7 +185,7 @@ draw state@State
         -- . withBorderStyle unicode hBorder
         . (case move of
             Nothing -> id
-            Just (y,x) -> 
+            Just (y,x) -> id)
                 -- @TODO show that selected pice was selected
                 -- showCursor "use" (Location (y+1,x+1)))
         . borderWithLabel (str label)
@@ -252,15 +252,10 @@ handelEvents state@State
 
             V.KEnter -> 
                 Brick.Main.continue
-                . (trace "checkWinner2")
                 . checkWinner
-                . (trace "runAI")
                 . runAI
-                . (trace "checkWinner")
                 . checkWinner
-                . (trace "update")
                 . update
-                . (trace "na")
                 $ state
 
             _ -> Brick.Main.continue state
@@ -347,7 +342,6 @@ validMove board (m1,m2) =
                 Just piece ->
                     -- check that nothing is in the way
                     if Nothing /= board M.! (y2,x2) then
-                       (\x -> trace (show x ++ show (m1,m2)) x)
                        False 
                     -- check if can move in that direction
                     else if (case piece of
@@ -398,7 +392,20 @@ validMoves board player =
 
 applyMove :: ((Int,Int),(Int,Int)) -> Board -> Board
 applyMove move board = -- @TODO
-    board
+    let
+        (y1,x1) = upOne . fst $ move
+        (y2,x2) = upOne . snd $ move
+        (dy,dx) = (y2-y1,x2-x1)
+        piece   = board M.! (y1,x1)
+        board'  = M.setElem piece (y2,x2)
+                . M.setElem Nothing (y1,x1)
+                $ board
+    in
+    -- if jumoing over a piece makeshure the piece is taken
+    if 2 == abs (x1-x2) then
+        M.setElem Nothing (y1+(dy`div`2),x1+(dx`div`2)) board' 
+    else
+        board'
     
 
 runAI :: State -> State
