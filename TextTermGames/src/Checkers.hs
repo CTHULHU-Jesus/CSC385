@@ -153,25 +153,25 @@ draw state@State
             , aiOponnent = aiOponnent
             } = 
     let
-        rend :: Board -> String
+        rend :: Board -> Widget String
         rend m = ( 
-            init
-            . foldl (\a b -> a++"\n"++b) ""
-            . map concat
+          let
+            hilightTheme = ()
+          in
+            vBox
+            . map hBox
             . M.toLists
             . M.mapPos (\(y,x) piece ->
                 case piece :: Maybe Checker of
-                    Just piece -> show piece 
-                                    -- ++
---                                     (case move :: Maybe (Int,Int) of
---                                         Just selected 
---                                             | upOne selected == (y,x) ->
---                                                 " ̅"
---                                         otherwise -> "")
-                    Nothing -> if 1==(y+x) `mod` 2 then
-                                   " "
+                    Just piece -> 
+                      case move of
+                        Just select | select==(y-1,x-1) -> 
+                          str . show $ piece
+                        otherwise -> str . show $ piece 
+                    Nothing    -> if 1==(y+x) `mod` 2 then
+                                   str " "
                                else
-                                   "░")
+                                   str "░")
             $ m)
 
         label :: String
@@ -189,7 +189,6 @@ draw state@State
                 -- @TODO show that selected pice was selected
                 -- showCursor "use" (Location (y+1,x+1)))
         . borderWithLabel (str label)
-        . str
         . rend
         $ board]
 
@@ -304,13 +303,16 @@ update state@State
                                state
         Just (y1,x1) -> 
             let
-                move = ((y1,x1),currCursorPos)
+              move :: ((Int,Int),(Int,Int))
+              move = ((y1,x1),currCursorPos)
+              wasJump :: Bool
+              wasJump = abs (y1-fst currCursorPos) == 2
             in
                 if move `elem` (validMoves board currPlayer) then
                     let
                         board' = applyMove move board
                     in
-                        if canJump board' currCursorPos then
+                        if wasJump && canJump board' currCursorPos then
                             state { board = board'
                                         , move = Just currCursorPos } 
                         else

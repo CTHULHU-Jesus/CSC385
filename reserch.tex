@@ -1,34 +1,149 @@
 \documentclass[12pt]{article}
 
-\usepackage{amssymb,amsmath,afterpage}
+\usepackage{amssymb,amsmath,listings,afterpage,fancyvrb}
+\usepackage[utf8]{inputenc}
 \usepackage[english]{babel}
 \usepackage[
     backend=biber,
     style=numeric,
     citestyle=ieee,
   ]{biblatex}
-
+\lstset{literate=
+  {λ}{{$\lambda$}}1
+  {∞}{{$\infty$}}1
+  {α}{{$\alpha$}}1
+  {β}{{$\beta$}}1 
+  {≥}{{$\geq$}}1
+}
 \addbibresource{ref.bib}
 
 \begin{document}
-	\author{Matthew Bartlett}
-	\title{Research Report}
-	\date{\today}
-	\maketitle
+  \author{Matthew Bartlett}
+  \title{Functional MiniMax}
+  \date{\today}
+  \maketitle
 
-	% Introduction
-	\begin{paragraph}
-		\qquad The bulk of the research needed for this project was in AI/Game Theory.
-	\end{paragraph}
+  % Introduction
+  \begin{paragraph}
+  \qquad The bulk of the research needed for this project was in AI/Game Theory. While Researching I came across the minimax\textsuperscript{\cite{MiniMax}} algorithm witch seemed to be exactly what was needed for the project at hand. An algorithm versatile enough to be used for multiple games, but it did have one problem. It was slow for games with large state space's. So we needed to implement some well known optimizations for this purpose, specifically maximum depth and alpha beta-pruning.
+  \end{paragraph}
 
-	% Body
-	\begin{paragraph}
-		ff\cite{GameTheory}
-	\end{paragraph}
+  % Body
+  \begin{paragraph}
+  \qquad The minimax algorithm works by looking at a game state and trying to make the best move for each player. It gets its name because it simulates the game by having one player try to maximize a heuristic of some game state, while the player is trying to minimize that same heuristic. I have included some naive example code below in Psudo-Haskell (biased on Wikipedia's example code\textsuperscript{\cite{MiniMaxWiki}}).
+  \end{paragraph}\\
 
-	% Conclusion
+  \begin{footnotesize} 
+  \begin{lstlisting}[language=Haskell]
+  -- example function call
+  minimax startState True 
 
-	% References
-	\printbibliography{}
+  minimax :: State -> Bool -> Int
+  minimax node maximizingPlayer =
+    if node is a terminal node then
+      return the heuristic value of node
+    else if maximizingPlayer then
+      foldl max - ∞ (
+      map (λ node' -> minimax node' False) (
+      [ list of all children of node ]
+      ))
+    else -- minimizing player
+      foldl min + ∞ (
+      map (λ node' -> minimax node' True) (
+      [ list of all children of node ]
+      ))
+  \end{lstlisting}
+  \end{footnotesize}
+
+  \begin{paragraph}
+    \qquad This is a fairly naive solution that ignores some things like the state space of whatever game you are working with being large, this is not a problem for games like Tik-Tac-Toe. However for games like connect-4 or checkers this algorithm is too slow. For this first optimization we will add a maximum depth that the function can recur to. This keeps the AI from having to play out all possible games, instep it only needs to look a few moves ahead. The downside is that now the heuristic is harder to write. Using the previous algorithm we always knew that the heuristic was on a terminal state and could make the heuristic something like (if maximising player won then $100-depth$ else $-100+depth$). But now we have to look at non-terminal states as well.
+  \end{paragraph}\\
+
+  \begin{footnotesize} 
+  \begin{lstlisting}[language=Haskell]
+  -- example function call
+  minimax startState 0 True
+
+  minimax :: State -> Int -> Bool -> Int
+  minimax node depth maximizingPlayer =
+    if (depth == max depth) 
+       or (node is a terminal node) then
+      return the heuristic value of node
+    else if maximizingPlayer then
+      foldl max - ∞ (
+      map (λ node' -> 
+      minimax node' (depth+1) False) (
+      [ list of all children of node ]
+      ))
+    else -- minimizing player 
+      foldl min + ∞ (
+      map (λ node' -> 
+      minimax node' (depth+1) True) (
+      [ list of all children of node ]
+      ))
+  \end{lstlisting}
+  \end{footnotesize} 
+
+  \begin{paragraph}
+    \qquad This is good, but we are going to make one more optimization called alpha-beta pruning\textsuperscript{\cite{AlphaBeta}}. This can be used to ``prune'' the tree if a branch can be proven to worse than a previous branch. This is done by passing down two variables recursively, $\alpha$ representing the minimum score that the maximizing player is assured of and $\beta$ representing the maximum score the minimizing player is assured of. If we find a branch where the minimum score for the maximizing player is greater or equal to the maximum score of the minimizing player (i.e. $\alpha\geq\beta$) we can prune that branch because the minimizing player would never move onto that branch because is puts them at a disadvantage.
+  \end{paragraph}\\
+
+  \begin{footnotesize} 
+  \begin{lstlisting}[language=Haskell]
+  -- example function call
+  minimax startState 0 - ∞  + ∞ True
+
+  minimax :: State -> Int -> Int -> Int -> Bool -> Int
+  minimax node depth α β maximizingPlayer =
+    let
+      prune :: [ State ] -> Int -> Int -> [ Int ]
+      prune [] _ _ = []
+      prune x:xs α β = 
+        let
+        value :: Int
+        value = minimax x (depth+1) α β maximizingPlayer
+        α' = max α value
+        β' = min β value
+        rest :: [ Int ]
+        rest = 
+          if maximizingPlayer then
+            if α' ≥ β then
+              []
+            else
+              prune xs α' β 
+          else 
+            if α ≥ β' then
+              []
+            else
+              prune xs α β'
+      in
+        value : rest
+    in
+      if (depth == max depth) 
+         or (node is a terminal node) then
+        return the heuristic value of node
+      else if maximizingPlayer then
+        foldl max - ∞ (
+        prune
+        [ list of all children of node ]
+        )
+      else -- minimizing player 
+        foldl min + ∞ (
+        prune 
+        [ list of all children of node ]
+        )
+  \end{lstlisting}   
+  \end{footnotesize} 
+  
+  
+  % Conclusion
+  
+  
+  \begin{paragraph}
+    \qquad With all of these optimisations we can use minimax for real time game AI for games like chess and connect-4. If minimax is still too slow we can reduce the max depth or cache the minimax values for game states in a database. The hardest part of this algorithm is deciding on a good heuristic for an arbitrary game state.
+  \end{paragraph}
+  % References
+  \pagebreak
+  \printbibliography{}
 
 \end{document}
