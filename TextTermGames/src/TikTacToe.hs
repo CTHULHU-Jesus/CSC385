@@ -26,6 +26,9 @@ data Player = O
             | X
             deriving (Eq,Show)
 
+-- The board is a martix of X or O or Nothing
+type Board = M.Matrix (Maybe Player)
+
 -- Changes O to X and X to O
 -- Isomorphic to not
 other :: Player -> Player
@@ -73,67 +76,72 @@ miniMaxWithABD :: M.Matrix (Maybe Player)
                -> Player
                -> (Int,Int)
 miniMaxWithABD board player =
-    let
-        helper :: M.Matrix (Maybe Player)
-               -> Player
-               -> Int
-               -> Int
-               -> Int
-               -> ((Int,Int),Int) -- (move,score)
-        helper board me depth alpha beta = 
-            let
-                dive :: Int
-                     -> Int
-                     -> [((Int,Int),M.Matrix (Maybe Player))]
-                     -> [((Int,Int),Int)]
-                dive _ _ [] = []
-                dive alpha beta ((move,board):xs) = (move,score):more where
-                    score :: Int
-                    score  = (snd 
-                             $ helper board (other me) (depth+1) alpha beta)
-
-                    alpha' = max score alpha
-
-                    beta'  = min score beta
-
-                    more   = case (me == player) of
-                            -- maximizing
-                        True -> if alpha' >= beta then
-                                    []
-                                else
-                                    dive alpha' beta xs 
-                            -- minimizing
-                        False -> if beta' <= alpha then
-                                     []
-                                 else
-                                     dive alpha beta' xs 
-
-                buildBoards :: [(Int,Int)]
-                            -> [((Int,Int),M.Matrix (Maybe Player))]
-                buildBoards = map (\x -> (x,place board me x))
-
-                evaluate :: Int
-                evaluate = case winner board of
-                                Just x  -> (if x == player then 1 else -1) * 
-                                           (20-depth)
-                                Nothing -> 0
-            in
-                if (winner board) /= Nothing then
-                    ((0,0),evaluate)
-                else if isFull board then
-                    ((0,0),evaluate)
-                else
-                   (if me == player then last else head)
-                   -- TODO remove trace when can
-                   . (\x -> (trace (show (if me == player then "Max" else "Min")
-                                       ++"\n"++ show board ++ "\n" ++ show x) x))
-                   . sortOn snd
-                   . dive alpha beta
-                   . buildBoards
-                   $ validMoves board
+  let
+    openSpaces :: Board -> [(Int,Int)]
+    openSpaces board =
+      map snd
+      . filter (\(x,_) -> case x of
+                Just _  -> False
+                Nothing -> True)
+      . M.toList
+      . M.mapPos (\pos a -> (a,pos))
+      $ board
+    score :: Board -> Int -> Int
+    score board depth = case winner board of
+      Just x | x == player -> 20 - depth
+      Just x | x /= player -> -20 + depth
+      Nothing -> 0
+    minimax :: Board -> Int -> Int -> Int -> Bool -> Int
+    minimax node depth α β maximizingPlayer =
+      let
+        prune :: [ Board ] -> Int -> Int -> [ Int ]
+        prune [] _ _ = []
+        prune (x:xs) α β = 
+          let
+          value :: Int
+          value = minimax x (depth+1) α β (not maximizingPlayer)
+          α' = max α value
+          β' = min β value
+          rest :: [ Int ]
+          rest = 
+            if maximizingPlayer then
+              if α' >= β then
+                []
+              else
+                prune xs α' β 
+            else 
+              if α >= β' then
+                []
+              else
+                prune xs α β'
+          in
+            value : rest
+      in
+        -- if there is a winner or the board is full
+        if (winner board /= Nothing) || isFull board then
+          score board depth
+        else if maximizingPlayer then
+          foldl max (minBound::Int)
+          . (\board -> prune board α β)
+          $ [M.unsafeSet (Just player) s board | s <- openSpaces board ]
+        else -- minimizing player 
+          foldl min (maxBound::Int)
+          . (\board -> prune board α β)
+          $ [M.unsafeSet (Just $ other player) s board | s <- openSpaces board ]
     in
-        fst 
-        $ helper board player 0 (minBound :: Int) (maxBound :: Int)
+      if (1,1) `elem` openSpaces board then
+        (1,1)
+      else
+        (\(a,b) -> (a-1,b-1))
+        . fst
+        . foldl max ((0,0),minBound::Int)
+        $ [ (s,minimax 
+            (M.unsafeSet (Just player) s board) 
+            0 
+            (minBound :: Int) 
+            (maxBound :: Int)
+            True )
+              | s <- openSpaces board]
 
 -- If there is a winner returns just the winner.
 -- If there is no winner returns nothing.

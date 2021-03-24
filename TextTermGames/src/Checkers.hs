@@ -41,6 +41,7 @@ data State
             , currPlayer :: Player
             , jumpingPiece :: Maybe (Int,Int)
             , move :: Maybe (Int,Int)
+            , forcedMove :: Bool
             , currCursorPos :: (Int,Int)
             , aiOponnent :: Maybe Player
             }
@@ -68,6 +69,7 @@ initBoard ai = State
     , currPlayer = White
     , jumpingPiece = Nothing
     , move = Nothing
+    , forcedMove = False
     , currCursorPos = (0,0)
     , aiOponnent = ai }
     
@@ -156,7 +158,11 @@ draw state@State
         rend :: Board -> Widget String
         rend m = ( 
           let
-            hilightTheme = ()
+            highlightShow :: Checker -> String
+            highlightShow (NonKing White) = "a"
+            highlightShow (NonKing Black) = "b"
+            highlightShow (King    White) = "A"
+            highlightShow (King    Black) = "B"
           in
             vBox
             . map hBox
@@ -166,8 +172,8 @@ draw state@State
                     Just piece -> 
                       case move of
                         Just select | select==(y-1,x-1) -> 
-                          str . show $ piece
-                        otherwise -> str . show $ piece 
+                          str . highlightShow $ piece
+                        _ -> str . show $ piece 
                     Nothing    -> if 1==(y+x) `mod` 2 then
                                    str " "
                                else
@@ -180,7 +186,7 @@ draw state@State
         [ center
         . showCursor "use" 
             ( Location 
-            . (\(y,x) -> (x+1,y+2))
+            . (\(y,x) -> (x+1,y+1))
             $ currCursorPos)
         -- . withBorderStyle unicode hBorder
         . (case move of
@@ -218,6 +224,7 @@ handelEvents state@State
             , currPlayer = currPlayer
             , jumpingPiece = jumpingPiece
             , move = move
+            , forcedMove = forcedMove
             , currCursorPos = (cursorY,cursorX)
             , aiOponnent = aiOponnent
             } e =
@@ -256,7 +263,14 @@ handelEvents state@State
                 . checkWinner
                 . update
                 $ state
-
+            V.KEsc -> 
+              Brick.Main.continue
+              . (\s -> 
+                  if forcedMove then
+                    s
+                  else
+                    s {move = Nothing})
+              $ state
             _ -> Brick.Main.continue state
 
         _ -> Brick.Main.continue state
@@ -289,6 +303,7 @@ update state@State
             , currPlayer = currPlayer
             , jumpingPiece = jumpingPiece
             , move = move
+            , forcedMove = forcedMove
             , currCursorPos = currCursorPos@(cursorY,cursorX)
             , aiOponnent = aiOponnent
             } =
@@ -312,13 +327,15 @@ update state@State
                     let
                         board' = applyMove move board
                     in
-                        if wasJump && canJump board' currCursorPos then
-                            state { board = board'
-                                        , move = Just currCursorPos } 
+                        if  wasJump && canJump board' currCursorPos then
+                            state { board      = board'
+                                  , move       = Just currCursorPos 
+                                  , forcedMove = True } 
                         else
                             state { board = board'
-                                        , move = Nothing
-                                        , currPlayer = other currPlayer}
+                                        , move       = Nothing
+                                        , currPlayer = other currPlayer
+                                        , forcedMove = False}
                 else
                     state 
 update x = x
@@ -334,10 +351,10 @@ validMove board (m1,m2) =
     in
         if dx==0 || dy==0 then
             False
-        else if any (not . inBoard) $ [y1,x1,y2,x2] then
+        else if any (not . inBoard) [y1,x1,y2,x2] then
             False
         -- checkers can only move in a diagonal
-        else if not $ abs dx == abs dy then
+        else if abs dx /= abs dy then
             False
         else case board M.! (y1,x1) of
                 Nothing -> False
@@ -399,7 +416,11 @@ applyMove move board = -- @TODO
         (y2,x2) = upOne . snd $ move
         (dy,dx) = (y2-y1,x2-x1)
         piece   = board M.! (y1,x1)
-        board'  = M.setElem piece (y2,x2)
+        piece' = case colorOf <$> piece of
+                  Just White | y2 == 1 -> Just $ King White
+                  Just Black | y2 == 8 -> Just $ King Black
+                  _ -> piece
+        board'  = M.setElem piece' (y2,x2)
                 . M.setElem Nothing (y1,x1)
                 $ board
     in

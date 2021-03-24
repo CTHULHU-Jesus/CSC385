@@ -11,3 +11,9 @@
 
 2021-03-12 Matthew Bartlett mbart974@live.kutztown.edu
 - Chekers is working with 2 minimal bugs
+
+2021-03-12 Matthew Bartlett mbart974@live.kutztown.edu
+- Checkers is now working 
+- Checkers needs 4 new symbols for selected checkers
+- You can now escape a move that you don't want but cant backout of a forced move
+
