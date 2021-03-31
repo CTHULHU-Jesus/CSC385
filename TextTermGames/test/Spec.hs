@@ -1,2 +1,4 @@
+import qualified TikTacToe as T ()
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = putStrLn "No tests" 

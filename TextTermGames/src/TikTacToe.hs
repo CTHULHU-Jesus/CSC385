@@ -89,7 +89,7 @@ miniMaxWithABD board player =
     score :: Board -> Int -> Int
     score board depth = case winner board of
       Just x | x == player -> 20 - depth
-      Just x | x /= player -> -20 + depth
+      Just x | x /= player -> -200 + depth
       Nothing -> 0
     minimax :: Board -> Int -> Int -> Int -> Bool -> Int
     minimax node depth α β maximizingPlayer =
@@ -123,25 +123,29 @@ miniMaxWithABD board player =
         else if maximizingPlayer then
           foldl max (minBound::Int)
           . (\board -> prune board α β)
-          $ [M.unsafeSet (Just player) s board | s <- openSpaces board ]
+          $ [ M.unsafeSet (Just player) s board | s <- openSpaces board ]
         else -- minimizing player 
           foldl min (maxBound::Int)
           . (\board -> prune board α β)
-          $ [M.unsafeSet (Just $ other player) s board | s <- openSpaces board ]
+          $ [ M.unsafeSet (Just $ other player) s board | s <- openSpaces board ]
     in
-      if (1,1) `elem` openSpaces board then
-        (1,1)
-      else
-        (\(a,b) -> (a-1,b-1))
+        (\(a,b) -> (a-1,b-1)) -- moves space from matrix space to screen space
         . fst
         . foldl max ((0,0),minBound::Int)
-        $ [ (s,minimax 
-            (M.unsafeSet (Just player) s board) 
-            0 
-            (minBound :: Int) 
-            (maxBound :: Int)
-            True )
-              | s <- openSpaces board]
+        $ [ (s, minimax 
+              (M.unsafeSet (Just player) s board) 
+              0 
+              (minBound :: Int) 
+              (maxBound :: Int)
+              False )
+                | s <- openSpaces board ]
+
+-- for testing purposes only
+testBoard :: Board
+testBoard = M.fromLists [ [ Just O, Just O, Nothing]
+                        , [ Just X, Just X, Just O]
+                        , [ Just X, Just O, Nothing]]
+
 
 -- If there is a winner returns just the winner.
 -- If there is no winner returns nothing.

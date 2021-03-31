@@ -17,3 +17,5 @@
 - Checkers needs 4 new symbols for selected checkers
 - You can now escape a move that you don't want but cant backout of a forced move
 
+2021-03-31 Matthew Bartlett mbart974@live.kutztown.edu
+- Tried to get miniMax to work. It doesn't
