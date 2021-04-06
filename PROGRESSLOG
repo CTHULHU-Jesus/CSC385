@@ -19,3 +19,7 @@
 
 2021-03-31 Matthew Bartlett mbart974@live.kutztown.edu
 - Tried to get miniMax to work. It doesn't
+
+2021-04-06 Matthew Bartlett mbart974@live.kutztown.edu
+- Merged Professor's minimax code
+- Added different highlight symbols to checkers

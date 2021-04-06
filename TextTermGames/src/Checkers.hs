@@ -157,13 +157,6 @@ draw state@State
     let
         rend :: Board -> Widget String
         rend m = ( 
-          let
-            highlightShow :: Checker -> String
-            highlightShow (NonKing White) = "a"
-            highlightShow (NonKing Black) = "b"
-            highlightShow (King    White) = "A"
-            highlightShow (King    Black) = "B"
-          in
             vBox
             . map hBox
             . M.toLists
@@ -433,6 +426,14 @@ applyMove move board = -- @TODO
 
 runAI :: State -> State
 runAI = id
+
+highlightShow :: Checker -> String
+highlightShow (NonKing White) = "☻"
+highlightShow (NonKing Black) = "☺"
+highlightShow (King    White) = "♛"
+highlightShow (King    Black) = "♕"
+
+
 
 -- Instances
 instance Show Checker where

@@ -5,9 +5,9 @@ import qualified Data.Matrix as M
 import qualified Graphics.Vty as V
 import qualified Brick.Main
 import qualified Brick.Types
-import System.IO.Unsafe (unsafePerformIO)-- be careful!                                         
+import MinimaxLib
 import System.Random (getStdRandom,randomR)
-import Data.Maybe (fromMaybe,catMaybes,fromJust)
+import Data.Maybe (fromMaybe,catMaybes,fromJust,isNothing)
 import Brick.Widgets.Border.Style (unicode)
 import Brick.Widgets.Center (center)
 import Data.List (isInfixOf,intersperse,sortOn)
@@ -70,81 +70,56 @@ validMoves board
         -- there
         Just _  -> Nothing)
     $ board
+newStates :: Board -> Player
+          -> [((Int,Int),Board)]
+newStates board player = 
+ [ (s,M.setElem (Just player) s board) 
+   | s <- openSpaces board ]
 
--- Minimax algorithm with alpha beta pruning and depth stop
-miniMaxWithABD :: M.Matrix (Maybe Player)
+openSpaces :: Board -> [(Int,Int)]
+openSpaces board =
+  map snd
+  . filter (\(x,_) -> case x of
+            Just _  -> False
+            Nothing -> True)
+  . M.toList
+  . M.mapPos (\pos a -> (a,pos))
+  $ board
+
+miniMaxWithABD :: Board
                -> Player
                -> (Int,Int)
 miniMaxWithABD board player =
-  let
-    openSpaces :: Board -> [(Int,Int)]
-    openSpaces board =
-      map snd
-      . filter (\(x,_) -> case x of
-                Just _  -> False
-                Nothing -> True)
-      . M.toList
-      . M.mapPos (\pos a -> (a,pos))
-      $ board
-    score :: Board -> Int -> Int
-    score board depth = case winner board of
-      Just x | x == player -> 20 - depth
-      Just x | x /= player -> -200 + depth
-      Nothing -> 0
-    minimax :: Board -> Int -> Int -> Int -> Bool -> Int
-    minimax node depth α β maximizingPlayer =
+  fromMaybe (-1,-1)
+  . ((\(a,b) -> (a-1,b-1)) <$> ) -- translate the move from matrix
+                                 -- space to screen space
+  $ abMinimax terminalTest' score successors (board,player,player) where
+    terminalTest' (board,turnPlayer,player) = terminalTest board
+    successors (board,turnPlayer,player) = map (\(move,a) ->(move,(a,other turnPlayer,player)))
+                                           $ newStates board turnPlayer
+    score (board,turnPlayer,player) = 
       let
-        prune :: [ Board ] -> Int -> Int -> [ Int ]
-        prune [] _ _ = []
-        prune (x:xs) α β = 
-          let
-          value :: Int
-          value = minimax x (depth+1) α β (not maximizingPlayer)
-          α' = max α value
-          β' = min β value
-          rest :: [ Int ]
-          rest = 
-            if maximizingPlayer then
-              if α' >= β then
-                []
-              else
-                prune xs α' β 
-            else 
-              if α >= β' then
-                []
-              else
-                prune xs α β'
-          in
-            value : rest
+        openSpaces = foldr
+          (\m i -> if isNothing m then i+1 else i)
+          0
+          (M.toList board)
       in
-        -- if there is a winner or the board is full
-        if (winner board /= Nothing) || isFull board then
-          score board depth
-        else if maximizingPlayer then
-          foldl max (minBound::Int)
-          . (\board -> prune board α β)
-          $ [ M.unsafeSet (Just player) s board | s <- openSpaces board ]
-        else -- minimizing player 
-          foldl min (maxBound::Int)
-          . (\board -> prune board α β)
-          $ [ M.unsafeSet (Just $ other player) s board | s <- openSpaces board ]
-    in
-        (\(a,b) -> (a-1,b-1)) -- moves space from matrix space to screen space
-        . fst
-        . foldl max ((0,0),minBound::Int)
-        $ [ (s, minimax 
-              (M.unsafeSet (Just player) s board) 
-              0 
-              (minBound :: Int) 
-              (maxBound :: Int)
-              False )
-                | s <- openSpaces board ]
+        case winner board of
+          -- if a player can win in less 
+          Just a | a == player -> 1+openSpaces
+          Just a | a /= player -> -(1+openSpaces)
+          Nothing              -> 0
+    
+  
+
+terminalTest :: Board -> Bool
+terminalTest board = isFull board || winner board /= Nothing
 
 -- for testing purposes only
 testBoard :: Board
-testBoard = M.fromLists [ [ Just O, Just O, Nothing]
-                        , [ Just X, Just X, Just O]
-                        , [ Just X, Just O, Nothing]]
+testBoard = M.fromLists [ [ Just X, Nothing, Nothing]
+                        , [ Just O, Just O, Nothing]
+                        , [ Nothing, Nothing, Nothing]]
 
 
 -- If there is a winner returns just the winner.

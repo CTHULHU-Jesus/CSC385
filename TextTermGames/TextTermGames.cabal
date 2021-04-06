@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d3d95d957d99ef3869698d3b5ef976b4bd1021844c612de1ded6b6a87a64a5c9
+-- hash: e19c99e8327b695292945d1e824da2cbee4e52145c87ebcb6991fa771b29ac45
 
 name:           TextTermGames
 version:        0.1.0.0
@@ -30,6 +30,7 @@ library
       Checkers
       Connect4
       Lib
+      MinimaxLib
       TikTacToe
   other-modules:
       Paths_TextTermGames
