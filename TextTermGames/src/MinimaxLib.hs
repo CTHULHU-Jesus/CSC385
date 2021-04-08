@@ -7,15 +7,16 @@ abMinimax :: (Eq a,Show a)
           => (a -> Bool)      -- terminal state test
           -> (a -> Int)       -- utility function
           -> (a -> [(b, a)])  -- successors: state to list of (action, state) pairs
+          -> Int
           -> a                -- initial state
           -> Maybe b          -- the best action
-abMinimax terminalTest utility successors state =
+abMinimax terminalTest utility successors maxDepth state =
   -- swap the -∞ and ∞
-  -- this currently breaks it though
   let (v, a, s) = maxValue 
                     terminalTest 
                     utility 
                     successors 
+                    maxDepth
                     state 
                     Nothing 
                     (minBound :: Int) 
@@ -29,13 +30,14 @@ maxValue :: Show a
          => (a -> Bool)       -- terminal state test
          -> (a -> Int)        -- utility function
          -> (a -> [(b, a)])   -- successors: state to list of (state, action) pairs
+         -> Int               -- depth
          -> a                 -- initial state
          -> Maybe b           -- action
          -> Int               -- alpha
          -> Int               -- beta
          -> (Int, Maybe b, a) -- score, action, state tuple
-maxValue terminalTest utility successors state action alpha beta =
-  if terminalTest state then 
+maxValue terminalTest utility successors depth state action alpha beta =
+  if (depth <= 0) || (terminalTest state) then 
     (utility state, action, state)
   else
     let (v, a, s, _, _) = foldr f ((minBound :: Int), action, state, alpha, beta) (successors state) in
@@ -51,7 +53,7 @@ maxValue terminalTest utility successors state action alpha beta =
             if False {-- alpha' >= beta --} then 
               (score, accAct, accState, alpha', beta)
             else
-              let (v, a', s') = minValue terminalTest utility successors s (Just a) alpha beta in
+              let (v, a', s') = minValue terminalTest utility successors (depth-1) s (Just a) alpha beta in
               (v, a', s', max alpha v, beta)
 
 
@@ -59,13 +61,14 @@ minValue :: Show a
          => (a -> Bool)       -- terminal state test
          -> (a -> Int)        -- utility function
          -> (a -> [(b, a)])   -- successors: state to list of (state, action) pairs
+         -> Int               -- depth
          -> a                 -- initial state
          -> Maybe b           -- move
          -> Int               -- alpha
          -> Int               -- beta
          -> (Int, Maybe b, a) -- score, action, state tuple
-minValue terminalTest utility successors state action alpha beta =
-  if terminalTest state then 
+minValue terminalTest utility successors depth state action alpha beta =
+  if (depth <= 0) || (terminalTest state) then 
     (utility state, action, state)
   else
     let (v, a, s, _, _) = foldr f ((maxBound :: Int), action, state, alpha, beta) (successors state) in
@@ -78,5 +81,5 @@ minValue terminalTest utility successors state action alpha beta =
             if False {-- alpha >= beta' --} then 
               (score, accAct, accState, alpha, beta)
             else
-              let (v, a', s') = maxValue terminalTest utility successors s (Just a) alpha beta in
+              let (v, a', s') = maxValue terminalTest utility successors (depth-1) s (Just a) alpha beta in
               (v, a', s', alpha, min beta v)

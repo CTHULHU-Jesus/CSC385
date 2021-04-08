@@ -5,14 +5,14 @@ import qualified Data.Matrix as M
 import qualified Graphics.Vty as V
 import qualified Brick.Main
 import qualified Brick.Types
-import System.IO.Unsafe (unsafePerformIO)-- be careful!                                         
 import System.Random (getStdRandom,randomR)
-import Data.Maybe (fromMaybe,catMaybes,fromJust)
+import Data.Maybe 
 import Brick.Widgets.Border.Style (unicode)
 import Brick.Widgets.Center (center)
 import Data.List (isInfixOf,intersperse,sortOn)
 import Brick.Widgets.Border (borderWithLabel,border,hBorder,vBorder)
 import Brick
+import MinimaxLib
 import qualified Brick.Widgets.List as BWList
 
 -- For Debugging only
@@ -24,11 +24,13 @@ data Player
         | Black
         deriving (Eq,Show)
 
+type Board = M.Matrix (Maybe Player)
+
 data State 
         = AISelectorMenu (BWList.List String (Maybe Player))
         | Winner (Maybe Player)
         | State 
-            { board :: M.Matrix (Maybe Player)
+            { board :: Board
             , currPlayer :: Player
             , currCursorPos :: Int
             , aiOponnent :: Maybe Player
@@ -91,73 +93,36 @@ openSpaces :: M.Matrix (Maybe Player) -> [Int]
 openSpaces m = [x | x<-[0..6] ,
                     Nothing `Vec.elem` (M.getCol (x+1) m)]
 
+newStates :: Board -> Player -> [(Int,Board)]
+newStates board player =
+  map 
+    (\move -> (move,place board player move))
+    (openSpaces board)
 
-
--- Minimax algorithm with alpha beta pruning and depth stop
-miniMaxWithABD :: M.Matrix (Maybe Player)
+miniMaxWithABD :: Board
                -> Player
                -> Int
 miniMaxWithABD board player =
-    let
-        maxDepth :: Int
-        maxDepth = 9
-
-        helper :: M.Matrix (Maybe Player)
-               -> Player
-               -> Int
-               -> Int
-               -> Int
-               -> (Int,Int) -- (move,score)
-        helper board me depth alpha beta = 
-            let
-                dive :: Int
-                     -> Int
-                     -> [(Int,M.Matrix (Maybe Player))]
-                     -> [(Int,Int)]
-                dive _ _ [] = []
-                dive alpha beta ((move,board):xs) = (move,score):more where
-                    score :: Int
-                    score = (snd 
-                          $ helper board (other me) (depth+1) alpha beta)
-                    more  = case (me == player) of
-                            -- maximizing
-                        True -> if score >= beta then
-                                    []
-                                else
-                                    dive (max alpha score) beta xs
-                            -- minimizing
-                        False -> if score <= alpha then
-                                     []
-                                 else
-                                     dive alpha (min beta score) xs
-
-                buildBoards :: [Int]
-                            -> [(Int,M.Matrix (Maybe Player))]
-                buildBoards = map (\x -> (x,place board me x))
-
-                evaluate :: Int
-                                -- other me is used here because that is what
-                                -- helper is called with
-                evaluate = (if (other me) == player then 1 else -1) *
-                           (case winner board of
-                                Just _  -> 100-depth
-                                Nothing -> 0)
-            in
-                if depth == maxDepth then
-                    (0,evaluate)
-                else if (winner board) /= Nothing then
-                    (0,evaluate)
-                else if isFull board then
-                    (0,0)
-                else
-                   (if me == player then head else last)
-                   . sortOn snd
-                   . dive alpha beta
-                   . buildBoards
-                   $ openSpaces board
-    in
-        fst 
-        $ helper board player 0 (minBound :: Int) (maxBound :: Int)
+  fromMaybe (-1)
+  $ abMinimax terminalTest score successors maxDepth (board,player,player) where
+    maxDepth = 100 -- doesn't run forever
+    terminalTest (board,turnPlayer,player) = isJust $ winner board
+    successors (board,turnPlayer,player) = map (\(move,a) ->(move,(a,other turnPlayer,player)))
+                                           $ newStates board turnPlayer
+    score (board,turnPlayer,player) = 
+      let
+        turnsTaken = foldr
+          (\m i -> if isJust m then i+1 else i)
+          0
+          (M.toList board)
+        winningScore = (6*7+1)-turnsTaken 
+      in
+        case winner board of
+          -- if a player can win in less 
+          Just a | a == player -> winningScore
+          Just a | a /= player -> -winningScore
+          Nothing              -> 0
+ 
 
 
 runAI :: State
@@ -255,9 +220,7 @@ initState =
     let
         selectList = Vec.fromList [Nothing, Just White, Just Black]
     in
-      initBoard Nothing
-        -- Changed for prototype
-        -- AISelectorMenu $ BWList.list "Connect4-AI-List" selectList 2 
+        AISelectorMenu $ BWList.list "Connect4-AI-List" selectList 2 
 
 
 initBoard :: Maybe Player -> State
@@ -394,7 +357,6 @@ place m p pos =
         M.setElem (Just p) (f col,pos+1) m
 
 
--- @TODO
 update :: State -> Maybe State
 update state@(State 
             { board = board

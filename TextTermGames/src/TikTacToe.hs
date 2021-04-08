@@ -93,7 +93,8 @@ miniMaxWithABD board player =
   fromMaybe (-1,-1)
   . ((\(a,b) -> (a-1,b-1)) <$> ) -- translate the move from matrix
                                  -- space to screen space
-  $ abMinimax terminalTest' score successors (board,player,player) where
+  $ abMinimax terminalTest' score successors maxDepth (board,player,player) where
+    maxDepth = 20 -- will reach terminal state before depth runs out
     terminalTest' (board,turnPlayer,player) = terminalTest board
     successors (board,turnPlayer,player) = map (\(move,a) ->(move,(a,other turnPlayer,player)))
                                            $ newStates board turnPlayer
@@ -103,7 +104,7 @@ miniMaxWithABD board player =
           (\m i -> if isJust m then i+1 else i)
           0
           (M.toList board)
-        winningScore = 10-turnsTaken 
+        winningScore = 12-turnsTaken 
       in
         case winner board of
           -- if a player can win in less 
