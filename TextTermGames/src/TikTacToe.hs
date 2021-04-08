@@ -7,7 +7,7 @@ import qualified Brick.Main
 import qualified Brick.Types
 import MinimaxLib
 import System.Random (getStdRandom,randomR)
-import Data.Maybe (fromMaybe,catMaybes,fromJust,isNothing)
+import Data.Maybe 
 import Brick.Widgets.Border.Style (unicode)
 import Brick.Widgets.Center (center)
 import Data.List (isInfixOf,intersperse,sortOn)
@@ -99,15 +99,16 @@ miniMaxWithABD board player =
                                            $ newStates board turnPlayer
     score (board,turnPlayer,player) = 
       let
-        openSpaces = foldr
-          (\m i -> if isNothing m then i+1 else i)
+        turnsTaken = foldr
+          (\m i -> if isJust m then i+1 else i)
           0
           (M.toList board)
+        winningScore = 10-turnsTaken 
       in
         case winner board of
           -- if a player can win in less 
-          Just a | a == player -> 1+openSpaces
-          Just a | a /= player -> -(1+openSpaces)
+          Just a | a == player -> winningScore
+          Just a | a /= player -> -winningScore
           Nothing              -> 0
     
   

@@ -8,10 +8,24 @@
 - Chess
 
 ## Configuration instructions
-* TODO find out if I need this
+- Have stack installed
+  - Install from: [Stack](https://docs.haskellstack.org/en/stable/README/)
 ## Installation instructions
-* TODO figure out how to install things with stack
+- To play the games go to the "TextTermGames" directory and run with "stack run"
+- If you do not have stack installed this will no work.
+
 ## Operating instructions
+- Some notes on the controls
+  - [Ctrl+c] will exit the program at any point
+  - TicTacToe
+    - You can select to play an AI
+    - The 'O' player always goes first
+  - Connect4
+    - White player always goes first
+  - Checkers
+    - White always goes first
+    - If you want to cancel selecting a piece hit [Esc]
+    - If you can't cancel a move it is because the rules of Checkers dictate that you MUST make take another piece if you can.
 
 ## A file manifest
 

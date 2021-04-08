@@ -28,7 +28,7 @@ menuItems =
         [ "Tik-Tac-Toe"
         , "Connect4"
         , "Checkers"
-        , "Chess"
+        -- Changed for protptype , "Chess"
         , "Exit" ]
 
 -- The initalState is

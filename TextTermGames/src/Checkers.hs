@@ -51,7 +51,9 @@ initState =
     let
         selectList = Vec.fromList [Nothing, Just White, Just Black]
     in
-        AISelectorMenu $ BWList.list "Checkers-AI-List" selectList 2 
+      initBoard Nothing
+        -- Changed for prototpye
+        -- AISelectorMenu $ BWList.list "Checkers-AI-List" selectList 2 
 
 
 

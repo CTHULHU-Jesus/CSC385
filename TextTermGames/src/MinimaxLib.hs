@@ -21,11 +21,8 @@ abMinimax terminalTest utility successors state =
                     (minBound :: Int) 
                     (maxBound :: Int) 
   in
-    trace (show s ++ show v)
+    -- trace (show s ++ show v)
     a
-  {-- case find (\x -> trace (show [snd x,s]) (snd x) == s) (successors state) of
-    Just(action,_) -> Just action
-    Nothing -> Nothing --}
 
 
 maxValue :: Show a
@@ -39,7 +36,6 @@ maxValue :: Show a
          -> (Int, Maybe b, a) -- score, action, state tuple
 maxValue terminalTest utility successors state action alpha beta =
   if terminalTest state then 
-    -- trace (show (state,utility state))
     (utility state, action, state)
   else
     let (v, a, s, _, _) = foldr f ((minBound :: Int), action, state, alpha, beta) (successors state) in
@@ -70,7 +66,6 @@ minValue :: Show a
          -> (Int, Maybe b, a) -- score, action, state tuple
 minValue terminalTest utility successors state action alpha beta =
   if terminalTest state then 
-    -- trace (show (state,utility state))
     (utility state, action, state)
   else
     let (v, a, s, _, _) = foldr f ((maxBound :: Int), action, state, alpha, beta) (successors state) in

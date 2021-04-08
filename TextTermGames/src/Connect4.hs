@@ -255,7 +255,9 @@ initState =
     let
         selectList = Vec.fromList [Nothing, Just White, Just Black]
     in
-        AISelectorMenu $ BWList.list "Connect4-AI-List" selectList 2 
+      initBoard Nothing
+        -- Changed for prototype
+        -- AISelectorMenu $ BWList.list "Connect4-AI-List" selectList 2 
 
 
 initBoard :: Maybe Player -> State
