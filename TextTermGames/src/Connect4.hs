@@ -69,25 +69,32 @@ allSubLines m =
         offDiag :: [[Maybe Player]]
         offDiag = diag
                 $ M.matrix 6 7 (\(y,x) -> m M.! (y,7-x+1))
-    in
-        rows ++ cols ++ (diag m) ++ offDiag
+  in
+      rows ++ cols ++ (diag m) ++ offDiag
+
+numberOf_Connects :: Board
+                -> Player
+                -> Int
+                  -> Int
+numberOf_Connects board player num = 
+  sum
+  . map (\line ->  
+          if replicate num (Just player) `isInfixOf` line then
+            1
+          else
+            0)
+  $ allSubLines board
+
 
 winner :: M.Matrix (Maybe Player)
        -> Maybe Player
 winner board =
-    let
-        isWinner :: Player
-                 -> Bool
-        isWinner p = foldl (||) False
-                   . map ((replicate 4 (Just p)) `isInfixOf`)
-                   $ allSubLines board
-    in
-        if isWinner White then
-            Just White
-        else if isWinner Black then
-            Just Black
-        else
-            Nothing
+  if numberOf_Connects board White 4  > 0 then
+      Just White
+  else if numberOf_Connects board Black 4  > 0 then
+      Just Black
+  else
+      Nothing
 
 openSpaces :: M.Matrix (Maybe Player) -> [Int]
 openSpaces m = [x | x<-[0..6] ,
@@ -105,7 +112,7 @@ miniMaxWithABD :: Board
 miniMaxWithABD board player =
   fromMaybe (-1)
   $ abMinimax terminalTest score successors maxDepth (board,player,player) where
-    maxDepth = 100 -- doesn't run forever
+    maxDepth = 5 -- doesn't run forever
     terminalTest (board,turnPlayer,player) = isJust $ winner board
     successors (board,turnPlayer,player) = map (\(move,a) ->(move,(a,other turnPlayer,player)))
                                            $ newStates board turnPlayer
