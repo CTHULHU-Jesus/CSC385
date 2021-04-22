@@ -75,7 +75,7 @@ allSubLines m =
 numberOf_Connects :: Board
                 -> Player
                 -> Int
-                  -> Int
+                -> Int
 numberOf_Connects board player num = 
   sum
   . map (\line ->  
@@ -97,8 +97,12 @@ winner board =
       Nothing
 
 openSpaces :: M.Matrix (Maybe Player) -> [Int]
-openSpaces m = [x | x<-[0..6] ,
-                    Nothing `Vec.elem` (M.getCol (x+1) m)]
+openSpaces m = 
+  let
+    spots = [2,5,0,1,6,4,3]
+  in
+    [x | x<-spots ,
+      Nothing `Vec.elem` (M.getCol (x+1) m)]
 
 newStates :: Board -> Player -> [(Int,Board)]
 newStates board player =
@@ -112,7 +116,7 @@ miniMaxWithABD :: Board
 miniMaxWithABD board player =
   fromMaybe (-1)
   $ abMinimax terminalTest score successors maxDepth (board,player,player) where
-    maxDepth = 5 -- doesn't run forever
+    maxDepth = 6 -- doesn't run forever
     terminalTest (board,turnPlayer,player) = isJust $ winner board
     successors (board,turnPlayer,player) = map (\(move,a) ->(move,(a,other turnPlayer,player)))
                                            $ newStates board turnPlayer
@@ -123,13 +127,15 @@ miniMaxWithABD board player =
           0
           (M.toList board)
         winningScore = (6*7+1)-turnsTaken 
+        numberOf2s =  (numberOf_Connects board player 2) - (numberOf_Connects board (other player) 2)
+        numberOf3s =  (numberOf_Connects board player 3) - (numberOf_Connects board (other player) 3)
       in
         case winner board of
           -- if a player can win in less 
           Just a | a == player -> winningScore
           Just a | a /= player -> -winningScore
-          Nothing              -> 0
- 
+          Nothing              -> numberOf2s+3*numberOf3s
+
 
 
 runAI :: State

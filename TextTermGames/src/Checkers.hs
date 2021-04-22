@@ -5,9 +5,10 @@ import qualified Data.Matrix as M
 import qualified Graphics.Vty as V
 import qualified Brick.Main
 import qualified Brick.Types
+import MinimaxLib (abMinimax)
 import System.IO.Unsafe (unsafePerformIO)-- be careful!                                         
 import System.Random (getStdRandom,randomR)
-import Data.Maybe (fromMaybe,catMaybes,fromJust)
+import Data.Maybe 
 import Brick.Widgets.Border.Style (unicode)
 import Brick.Widgets.Center (center)
 import Data.List (isInfixOf,intersperse,sortOn)
@@ -27,10 +28,12 @@ data Player
 
 -- (isKing,Player)
 data Checker = NonKing Player
-             | King     Player
+             | King    Player
              deriving (Eq)
 
 type Board = M.Matrix (Maybe Checker)
+type Point = (Int,Int)
+type Move  = (Point,Point)
 
 
 data State 
@@ -45,20 +48,20 @@ data State
             , currCursorPos :: (Int,Int)
             , aiOponnent :: Maybe Player
             }
+
 -- Constants
 initState :: State
 initState = 
     let
         selectList = Vec.fromList [Nothing, Just White, Just Black]
     in
-      initBoard Nothing
-        -- Changed for prototpye
-        -- AISelectorMenu $ BWList.list "Checkers-AI-List" selectList 2 
+        AISelectorMenu $ BWList.list "Checkers-AI-List" selectList 2 
 
 
 
 initBoard :: Maybe Player -> State
-initBoard ai = State 
+initBoard ai = 
+  runAI State 
     { board = M.matrix 8 8 
         (\(y,x) -> if (x+y) `mod` 2 == 1 then
                        case y of
@@ -81,49 +84,12 @@ other :: Player -> Player
 other Black = White
 other White = Black
 
-upOne :: (Int,Int) -> (Int,Int)
+upOne :: Point -> Point
 upOne (y,x) = (y+1,x+1)
 
 colorOf :: Checker -> Player
 colorOf (NonKing x) = x
 colorOf (King    x) = x
-
-{--
-upCursor :: (Int,Int) -> State -> State
-upCursor currCursorPos (State 
-            { board = board
-            , currPlayer = currPlayer
-            , jumpingPiece = jumpingPiece
-            , move = move
-            , currCursorPos = _
-            , aiOponnent = aiOponnent
-            }) =
-    State { board = board
-          , currPlayer = currPlayer
-          , jumpingPiece = jumpingPiece
-          , move = move
-          , currCursorPos = currCursorPos
-          , aiOponnent = aiOponnent }
-upCursor _ x = x
-
-
-upAI     :: Maybe Player -> State -> State
-upAI aiOponnent State 
-            { board = board
-            , currPlayer = currPlayer
-            , jumpingPiece = jumpingPiece
-            , move = move
-            , currCursorPos = currCursorPos
-            , aiOponnent = _
-            } =
-    State { board = board
-          , currPlayer = currPlayer
-          , jumpingPiece = jumpingPiece
-          , move = move
-          , currCursorPos = currCursorPos
-          , aiOponnent = aiOponnent }
-upAI _ x = x
---}
 
 draw :: State -> [Widget String] 
 draw (AISelectorMenu lst) =
@@ -282,15 +248,26 @@ checkWinner state@State
                 , move = _
                 , currCursorPos = _
                 , aiOponnent = _
-                } = 
-    if [] == validMoves board Black then
+                }
+    | isJust $ winner board = Winner $ winner board
+    | otherwise = state
+      
+    {-- if [] == validMoves board Black then
         Winner $ Just White
     else if [] == validMoves board White then
         Winner $ Just Black
     else
-        state
+        state --}
 
 checkWinner x = x
+
+winner :: Board 
+       -> Maybe Player
+winner board 
+  | null $ validMoves board Black = Just White
+  | null $ validMoves board White = Just Black
+  | otherwise  = Nothing
+
 
 update :: State -> State
 update state@State 
@@ -335,7 +312,7 @@ update state@State
                     state 
 update x = x
 
-validMove :: Board -> ((Int,Int),(Int,Int)) -> Bool
+validMove :: Board -> Move -> Bool
 validMove board (m1,m2) =
     let
         (y1,x1) = upOne m1
@@ -355,7 +332,7 @@ validMove board (m1,m2) =
                 Nothing -> False
                 Just piece ->
                     -- check that nothing is in the way
-                    if Nothing /= board M.! (y2,x2) then
+                    if isJust $ board M.! (y2,x2) then
                        False 
                     -- check if can move in that direction
                     else if (case piece of
@@ -376,12 +353,35 @@ validMove board (m1,m2) =
                     else
                         True 
 
-canJump :: Board -> (Int,Int) -> Bool
-canJump board pos@(y,x) =
-    any (validMove board)
-    [(pos,(y+dy,x+dx)) | dx<-[-2,2] , dy<-[-2,2]]
+isJump :: Move -> Bool
+isJump ((x1,y1),(x2,y2)) =
+  abs dx == 2 && abs dy == 2 where
+    dx = x1-x2
+    dy = y1-y2
 
-validMoves :: Board -> Player -> [((Int,Int),(Int,Int))]
+jumpedPoint :: Move -> Maybe Point
+jumpedPoint move@((y1,x1),(y2,x2)) =
+  if isJump move then
+    let
+      dx = x2-x1
+      dy = y2-y1
+    in
+      Just (y1+(dy`div`2),x1+(dx`div`2)) 
+  else
+    Nothing
+
+makeableJumps :: Board -> Point -> [Move]
+makeableJumps board pos@(y,x) =
+  filter (validMove board)
+  [(pos,(y+dy,x+dx)) | dx<-[-2,2] , dy<-[-2,2]]
+
+canJump :: Board -> Point -> Bool
+canJump board pos =
+    not 
+    . null 
+    $ makeableJumps board pos
+
+validMoves :: Board -> Player -> [Move]
 validMoves board player =
     concat
     . M.toList
@@ -404,30 +404,124 @@ validMoves board player =
     $ board
 
 
-applyMove :: ((Int,Int),(Int,Int)) -> Board -> Board
-applyMove move board = -- @TODO
+applyMove :: Move -> Board -> Board
+applyMove move_ board = -- @TODO
     let
-        (y1,x1) = upOne . fst $ move
-        (y2,x2) = upOne . snd $ move
-        (dy,dx) = (y2-y1,x2-x1)
-        piece   = board M.! (y1,x1)
-        piece' = case colorOf <$> piece of
-                  Just White | y2 == 1 -> Just $ King White
-                  Just Black | y2 == 8 -> Just $ King Black
-                  _ -> piece
-        board'  = M.setElem piece' (y2,x2)
-                . M.setElem Nothing (y1,x1)
+        move = ( upOne . fst $ move_
+               , upOne . snd $ move_)
+        p1 = fst move
+        p2 = snd move
+        piece   = board M.! p1
+        board'  = M.setElem (upgradePiece piece p2) p2
+                . M.setElem Nothing p1
                 $ board
     in
     -- if jumoing over a piece makeshure the piece is taken
-    if 2 == abs (x1-x2) then
-        M.setElem Nothing (y1+(dy`div`2),x1+(dx`div`2)) board' 
+    if isJump move then
+      M.setElem Nothing ( fromJust 
+                          . jumpedPoint 
+                          $ move) board' 
     else
         board'
-    
+
+upgradePiece :: Maybe Checker -> Point -> Maybe Checker
+upgradePiece checker p@(y,x) =
+  case colorOf <$> checker of
+    Just White | y == 1 -> Just $ King White
+    Just Black | y == 8 -> Just $ King Black
+    _ -> checker 
 
 runAI :: State -> State
-runAI = id
+runAI s@State {} =
+  case currPlayer s of
+    x | Just x /= aiOponnent s -> s
+    x | Just x == aiOponnent s -> 
+      aiUpdate s (miniMaxWithABD (board s) x)
+
+runAI x = x 
+
+aiUpdate :: State -> (Move,[Point]) -> State
+aiUpdate state@State {} move = 
+  state 
+    { currCursorPos = snd . fst $ move
+    , currPlayer = other $ currPlayer state
+    , board = aiApplyMove move (board state) 
+    } 
+     
+aiUpdate x _ = x
+
+aiApplyMove :: (Move,[Point]) -> Board -> Board
+aiApplyMove ((p1,p2),killList) board =
+  let
+    move = (upOne p1,upOne p2)
+    f :: Point -> Board -> Board
+    f p board = M.unsafeSet Nothing p board 
+  in
+    -- remove killed pieces
+    (\x -> foldr f x (map upOne killList))
+    -- move piece
+    ( let piece = board M.! fst move in
+        M.unsafeSet Nothing (fst move)
+        . M.unsafeSet (upgradePiece piece (snd move)) (snd move)
+        $ board)
+
+
+
+newStates :: Board -> Player -> [((Move,[Point]),Board)]
+newStates board player =
+  let
+    continueMoves :: Board -> Move -> [((Move,[Point]),Board)]
+    continueMoves board move@(p1,p2) =
+      let
+        killed = case jumpedPoint move of
+          Just x -> [x]
+          Nothing -> []
+        board' = aiApplyMove (move,killed) board
+        endState = [((move,killed),board')]
+        in
+      if isJump move && canJump board p2 then
+          map (\(((_,p2'),killed'),board') -> 
+                (((p1,p2'),killed++killed'),board'))
+          . concatMap (continueMoves board')
+          $ makeableJumps  board' p2
+      else
+        endState
+  in
+    concatMap (continueMoves board)
+    . (`validMoves` player)
+    $ board
+
+miniMaxWithABD :: Board
+               -> Player
+               -> (Move,[Point])
+miniMaxWithABD board player =
+  fromMaybe (((-1,-1),(0,0)),[])
+  $ abMinimax terminalTest score successors maxDepth (board,player,player) where
+    maxDepth = 8 -- doesn't run forever
+    terminalTest (board,turnPlayer,player) = isJust . winner $ board
+    successors (board,turnPlayer,player) = map (\(move,a) ->(move,(a,other turnPlayer,player)))
+                                           $ newStates board turnPlayer
+    score (board,turnPlayer,player) = 
+      let
+        scoreSide :: Player -> Int
+        scoreSide p =
+          sum
+          . map (\x -> 
+                  case x of
+                    Just (NonKing c) | c == p -> 1
+                    Just (King c)    | c == p -> 4
+                    _ -> 0)
+          . M.toList
+          $ board
+      in
+        case winner board of
+          -- if a player can win in less 
+          Just a | a == player -> 8^2
+          Just a | a /= player -> -(8^2)
+          Nothing              -> 
+            (scoreSide player)
+            - (scoreSide $ other player)
+
 
 highlightShow :: Checker -> String
 highlightShow (NonKing White) = "☻"

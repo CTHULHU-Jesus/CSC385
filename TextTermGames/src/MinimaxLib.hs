@@ -1,42 +1,7 @@
 module MinimaxLib (abMinimax) where
 
 import Debug.Trace (trace)
-import System.Random (mkStdGen, RandomGen, next)
-
-shuffle :: Int
-        -> [a] 
-        -> [a]
-shuffle a lst =
-  let
-    shuffle' :: [Int] -> [a] -> [a]
-    shuffle' _ [] = []
-    shuffle' [i] xs =  xs
-    shuffle' (i:is) xs = 
-      let 
-        (firsts, rest) = splitAt (i `mod` length xs) xs
-      in 
-        if null firsts  then
-          shuffle' is rest
-        else
-          last firsts : shuffle' is (init firsts ++ rest)
-
-    randomStream seed = 
-      let
-        gen = mkStdGen seed
-        helper :: RandomGen g 
-               => g 
-               -> [Int]
-        helper g =
-          let
-            (i,g') = next g
-          in
-            i:helper g'
-      in
-        helper gen
-
-    seed = 6969+a
-  in
-    shuffle' (take (length lst) $randomStream seed) lst
+import Data.Foldable (foldr')
 
 
 abMinimax :: (Eq a,Show a,Show b) 
@@ -58,7 +23,7 @@ abMinimax terminalTest utility successors maxDepth state =
                     (minBound :: Int) 
                     (maxBound :: Int) 
   in
-    trace (show s ++ show v ++ "a="++ show a)
+    trace (show s ++ "v=" ++ show v ++ "a=" ++ show a)
     a
 
 
@@ -73,27 +38,41 @@ maxValue :: Show a
          -> Int               -- beta
          -> (Int, Maybe b, a) -- score, action, state tuple
 maxValue terminalTest utility successors depth state action alpha beta =
-  if (depth <= 0) || (terminalTest state) then 
+  if (depth <= 0) || terminalTest state then 
     (utility state, action, state)
   else
     let 
-      (v, a, s, _, _) = foldr f ((minBound :: Int), action, state, alpha, beta) 
-                                (successors state) 
+      (v, a, s, _, _) = 
+        foldr' 
+          f 
+          (minBound :: Int, action, state, alpha, beta) 
+          (successors state) 
     in
       (v, a, s)
     where 
-      {-- f :: (b,a) 
-        -> (Int, Maybe b, a, Int, Int) 
-        -> (Int, Maybe b, a, Int, Int) --}
-      f (a, s) (score, accAct, accState, alpha, beta) =
+      f (a, s) pre@(score, accAct, accState, alpha, beta) =
         let
-          alpha' = max score alpha
+          a' = Just a
         in
-            if alpha' >= beta then 
-              (score, accAct, accState, alpha', beta)
+            if alpha >= beta then 
+              pre
             else
-              let (v, a', s') = minValue terminalTest utility successors (depth-1) s (Just a) alpha beta in
-              (v, Just a, s', max alpha v, beta)
+              let 
+                (v, _, s') = 
+                  minValue 
+                    terminalTest 
+                    utility 
+                    successors 
+                    (depth-1) 
+                    s 
+                    a'
+                    alpha 
+                    beta 
+              in
+                if score > v then
+                  pre
+                else
+                  (v, a', s', max alpha v, beta)
 
 
 minValue :: Show a
@@ -107,18 +86,39 @@ minValue :: Show a
          -> Int               -- beta
          -> (Int, Maybe b, a) -- score, action, state tuple
 minValue terminalTest utility successors depth state action alpha beta =
-  if (depth <= 0) || (terminalTest state) then 
+  if (depth <= 0) || terminalTest state then 
     (utility state, action, state)
   else
-    let (v, a, s, _, _) = foldr f ((maxBound :: Int), action, state, alpha, beta) (successors state) in
-    (v, a, s) 
+    let 
+      (v, a, s, _, _) = 
+        foldr' 
+          f 
+          (maxBound :: Int, action, state, alpha, beta) 
+          (successors state) 
+    in
+      (v, a, s) 
     where 
-      f (a, s) (score, accAct, accState, alpha, beta) =
+      f (a, s) pre@(score, accAct, accState, alpha, beta) =
         let
-          beta' = min beta score
+          a' = Just a
         in
-            if alpha >= beta' then 
-              (score, accAct, accState, alpha, beta)
+            if alpha >= beta then 
+              pre
             else
-              let (v, a', s') = maxValue terminalTest utility successors (depth-1) s (Just a) alpha beta in
-              (v, Just a, s', alpha, min beta v)
+              let 
+                (v, _, s') = 
+                  maxValue 
+                    terminalTest 
+                    utility 
+                    successors 
+                    (depth-1) 
+                    s 
+                    a'
+                    alpha 
+                    beta 
+              in
+                if score > v then
+                  (v, a', s', alpha, min beta v)
+                else
+                  pre
+

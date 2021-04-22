@@ -78,12 +78,11 @@ newStates board player =
 
 openSpaces :: Board -> [(Int,Int)]
 openSpaces board =
-  map snd
-  . filter (\(x,_) -> case x of
-            Just _  -> False
-            Nothing -> True)
+  map fst
+  . Prelude.reverse
+  . filter (\(_,x) -> isNothing x )
   . M.toList
-  . M.mapPos (\pos a -> (a,pos))
+  . M.mapPos (,)
   $ board
 
 miniMaxWithABD :: Board
