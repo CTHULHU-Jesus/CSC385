@@ -3,16 +3,19 @@ module MinimaxLib (abMinimax) where
 import Debug.Trace (trace)
 import Data.Foldable (foldr')
 
+{-- Thank you to Dr. Schwesinger
+ -- at Kutztown University
+ -- for providing the sample code
+ --}
 
-abMinimax :: (Eq a,Show a,Show b) 
+abMinimax :: (Eq a) -- ,Show a,Show b) 
           => (a -> Bool)      -- terminal state test
           -> (a -> Int)       -- utility function
           -> (a -> [(b, a)])  -- successors: state to list of (action, state) pairs
-          -> Int
+          -> Int              -- Max depth
           -> a                -- initial state
           -> Maybe b          -- the best action
 abMinimax terminalTest utility successors maxDepth state =
-  -- swap the -∞ and ∞
   let (v, a, s) = maxValue 
                     terminalTest 
                     utility 
@@ -20,14 +23,14 @@ abMinimax terminalTest utility successors maxDepth state =
                     maxDepth
                     state 
                     Nothing 
-                    (minBound :: Int) 
-                    (maxBound :: Int) 
+                    (minBound :: Int) -- -∞
+                    (maxBound :: Int) -- +∞
   in
-    trace (show s ++ "v=" ++ show v ++ "a=" ++ show a)
+    -- trace (show s ++ "v=" ++ show v ++ "a=" ++ show a)
     a
 
 
-maxValue :: Show a
+maxValue :: Eq a
          => (a -> Bool)       -- terminal state test
          -> (a -> Int)        -- utility function
          -> (a -> [(b, a)])   -- successors: state to list of (state, action) pairs
@@ -75,7 +78,7 @@ maxValue terminalTest utility successors depth state action alpha beta =
                   (v, a', s', max alpha v, beta)
 
 
-minValue :: Show a
+minValue :: Eq a
          => (a -> Bool)       -- terminal state test
          -> (a -> Int)        -- utility function
          -> (a -> [(b, a)])   -- successors: state to list of (state, action) pairs

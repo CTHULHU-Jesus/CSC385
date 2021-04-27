@@ -293,7 +293,7 @@ update state@State
               move :: ((Int,Int),(Int,Int))
               move = ((y1,x1),currCursorPos)
               wasJump :: Bool
-              wasJump = abs (y1-fst currCursorPos) == 2
+              wasJump = isJump move -- abs (y1-fst currCursorPos) == 2
             in
                 if move `elem` (validMoves board currPlayer) then
                     let
@@ -356,8 +356,8 @@ validMove board (m1,m2) =
 isJump :: Move -> Bool
 isJump ((x1,y1),(x2,y2)) =
   abs dx == 2 && abs dy == 2 where
-    dx = x1-x2
-    dy = y1-y2
+    dx = x2-x1
+    dy = y2-y1
 
 jumpedPoint :: Move -> Maybe Point
 jumpedPoint move@((y1,x1),(y2,x2)) =
@@ -497,30 +497,42 @@ miniMaxWithABD :: Board
 miniMaxWithABD board player =
   fromMaybe (((-1,-1),(0,0)),[])
   $ abMinimax terminalTest score successors maxDepth (board,player,player) where
-    maxDepth = 8 -- doesn't run forever
+    maxDepth = 7 -- doesn't run forever
     terminalTest (board,turnPlayer,player) = isJust . winner $ board
-    successors (board,turnPlayer,player) = map (\(move,a) ->(move,(a,other turnPlayer,player)))
-                                           $ newStates board turnPlayer
+    successors (board,turnPlayer,player) = 
+      map 
+        (\(move,a) ->
+          (move,(a,other turnPlayer,player)))
+      $ newStates board turnPlayer
     score (board,turnPlayer,player) = 
       let
-        scoreSide :: Player -> Int
-        scoreSide p =
+        score' :: Player -> Int
+        score' p =
+          let
+            p' = other p
+          in
           sum
           . map (\x -> 
                   case x of
-                    Just (NonKing c) | c == p -> 1
-                    Just (King c)    | c == p -> 4
+                    Just (NonKing c) | c == p  ->  1
+                    Just (NonKing c) | c == p' -> -1
+                    Just (King c)    | c == p  ->  4
+                    Just (King c)    | c == p' -> -4
                     _ -> 0)
           . M.toList
           $ board
+
+        scoreAlt :: Player -> Int
+        scoreAlt p =
+          length
+          $ validMoves board p
       in
+        -1*
         case winner board of
-          -- if a player can win in less 
-          Just a | a == player -> 8^2
-          Just a | a /= player -> -(8^2)
-          Nothing              -> 
-            (scoreSide player)
-            - (scoreSide $ other player)
+          Just a | a == player -> 1000
+          Just a | a /= player -> -1000
+          Nothing              -> score' player
+            --(scoreSide player)-(scoreSide $ other player)
 
 
 highlightShow :: Checker -> String

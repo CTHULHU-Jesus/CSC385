@@ -126,7 +126,7 @@ miniMaxWithABD board player =
           (\m i -> if isJust m then i+1 else i)
           0
           (M.toList board)
-        winningScore = (6*7+1)-turnsTaken 
+        winningScore = (1000)-turnsTaken 
         numberOf2s =  (numberOf_Connects board player 2) - (numberOf_Connects board (other player) 2)
         numberOf3s =  (numberOf_Connects board player 3) - (numberOf_Connects board (other player) 3)
       in
